@@ -2,7 +2,7 @@
 
 A terminal UI tool for rewriting git commit author history — no git installation required.
 
-Rename primary commit authors, fix emails, and drop `Co-authored-by` trailers across an entire repository in seconds. Ships as a single pre-built binary: download and run with one command.
+Rename primary commit authors, fix emails, and drop `Co-authored-by` trailers across an entire repository in seconds. Ships as a single pre-built binary: download with one command, then run directly.
 
 ## Quick Start
 
@@ -12,7 +12,11 @@ Run directly without installing:
 curl -fsSL https://raw.githubusercontent.com/uinstinct/git-author-reformer/main/install.sh | sh
 ```
 
-The script detects your platform, downloads the matching binary, verifies its SHA256 checksum, and saves it as `./git-author-reformer` in the current directory. Re-running the script reuses the existing binary — no re-download needed.
+The script detects your platform, downloads the matching binary, verifies its SHA256 checksum, and saves it as `./git-author-reformer` in the current directory. Re-running the script reuses the existing binary — no re-download needed. Then run it directly:
+
+```sh
+./git-author-reformer
+```
 
 To pin a specific version:
 
@@ -34,9 +38,10 @@ Run the tool from inside a git repository:
 ```sh
 cd /path/to/your/repo
 curl -fsSL https://raw.githubusercontent.com/uinstinct/git-author-reformer/main/install.sh | sh
+./git-author-reformer
 ```
 
-The TUI launches automatically. Use the keyboard to:
+Use the keyboard to:
 
 | Key | Action |
 |-----|--------|
