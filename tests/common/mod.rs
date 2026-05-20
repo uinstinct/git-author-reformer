@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use git2::{Repository, Signature, Time};
 use tempfile::TempDir;
 
@@ -10,9 +12,11 @@ pub fn create_fixture_repo() -> (TempDir, Repository) {
         let mut index = repo.index().unwrap();
         index.write_tree().unwrap()
     };
-    let tree = repo.find_tree(tree_oid).unwrap();
-    repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
-        .unwrap();
+    {
+        let tree = repo.find_tree(tree_oid).unwrap();
+        repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+            .unwrap();
+    }
 
     (dir, repo)
 }
