@@ -51,16 +51,16 @@ completed: 2026-05-20
 
 **GitHub Actions release workflow with 3-platform native matrix (ubuntu musl, macos-15 aarch64, macos-15-intel x86_64), SHA256 checksums, version-gate check, and ldd static-linking verification**
 
-## Status: PARTIAL — Task 1 complete, Task 2 pending human verification
+## Status: COMPLETE
 
-Task 2 is a `checkpoint:human-verify` gate requiring a live GitHub Actions run. It cannot be auto-approved.
+Both tasks completed. Live GitHub Actions run verified — 6 release artifacts confirmed on GitHub Releases, Linux binary confirmed static via ldd.
 
 ## Performance
 
 - **Duration:** ~12 min
 - **Started:** 2026-05-20T00:00:00Z
 - **Completed:** 2026-05-20
-- **Tasks:** 1 of 2 (Task 2 is a blocking checkpoint)
+- **Tasks:** 2 of 2
 - **Files modified:** 1
 
 ## Accomplishments
@@ -69,10 +69,13 @@ Task 2 is a `checkpoint:human-verify` gate requiring a live GitHub Actions run. 
 - All 17 structural acceptance criteria pass (actionlint exits 0)
 - Linux musl target configured with explicit `crt-static` flag for future-proof static linking
 - Version-check step prevents tag/Cargo.toml mismatch from producing a misnamed binary
+- Live GitHub Actions run verified: 6 artifacts (3 binaries + 3 SHA256 checksums) published to GitHub Releases
+- ldd confirmed Linux binary is static (ldd fix: grep pattern accepts both "statically linked" and "not a dynamic executable")
 
 ## Task Commits
 
 1. **Task 1: Create three-platform release workflow** — `6cb8f8b` (feat)
+2. **Task 2: Live CI verification** — checkpoint approved by user; ldd fix committed `ca97f86` (fix)
 
 ## Files Created/Modified
 
@@ -96,48 +99,44 @@ Task 2 is a `checkpoint:human-verify` gate requiring a live GitHub Actions run. 
 
 ## Deviations from Plan
 
-None - plan executed exactly as written.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] ldd grep pattern updated to accept musl "statically linked" output**
+- **Found during:** Task 2 (live CI verification)
+- **Issue:** The ldd verification step used `grep "not a dynamic executable"` but some musl toolchains produce `statically linked` instead. The CI check would have passed/failed inconsistently depending on the toolchain.
+- **Fix:** Updated grep pattern to `grep -E "not a dynamic executable|statically linked"` so both valid forms of static-linking confirmation are accepted.
+- **Files modified:** `.github/workflows/release.yml`
+- **Commit:** `ca97f86`
 
 ## Issues Encountered
 
 - actionlint download script required `latest /tmp` argument order (not `-b /tmp`). Corrected automatically; lint passed on first run.
 
-## Pending: Task 2 — Human Verification Checkpoint
+## Task 2 — Live CI Verification: APPROVED
 
-**What to verify:** Push a tag to GitHub and confirm the workflow runs correctly end-to-end.
+**User confirmed:** All 6 release artifacts appeared on GitHub Releases, and ldd confirmed the Linux binary is static.
 
-### Steps
+### Artifacts Verified
 
-1. Ensure Cargo.toml version matches the intended tag. Currently `version = "0.1.0"` — use tag `v0.1.0`, or bump the version to match a different tag.
-2. Push the workflow to main: `git push origin main`
-3. Push a version tag: `git tag v0.1.0 && git push origin v0.1.0`
-4. Visit https://github.com/uinstinct/git-author-reformer/actions — confirm 3 parallel jobs launch (linux, macos-aarch64, macos-x86_64)
-5. After all 3 jobs complete, visit https://github.com/uinstinct/git-author-reformer/releases
-6. Confirm exactly 6 artifacts are present:
-   - `git-author-reformer-linux-x86_64`
-   - `git-author-reformer-linux-x86_64.sha256`
-   - `git-author-reformer-macos-aarch64`
-   - `git-author-reformer-macos-aarch64.sha256`
-   - `git-author-reformer-macos-x86_64`
-   - `git-author-reformer-macos-x86_64.sha256`
-7. Download the Linux binary and run: `ldd git-author-reformer-linux-x86_64` — expected output: `not a dynamic executable`
+| Artifact | Present |
+|----------|---------|
+| `git-author-reformer-linux-x86_64` | confirmed |
+| `git-author-reformer-linux-x86_64.sha256` | confirmed |
+| `git-author-reformer-macos-aarch64` | confirmed |
+| `git-author-reformer-macos-aarch64.sha256` | confirmed |
+| `git-author-reformer-macos-x86_64` | confirmed |
+| `git-author-reformer-macos-x86_64.sha256` | confirmed |
 
-### Resume Signal
+### Static Linking Verified
 
-Type "approved" once all 6 release artifacts are visible and ldd confirms the Linux binary is static. Describe any failures so they can be diagnosed.
-
-### Common Failure Modes
-
-- "Cargo.toml version does not match tag" → bump `Cargo.toml` version to match the tag before pushing
-- Linux musl build C error → cmake/pkg-config apt step should cover it; check build log for specifics
-- "Resource not accessible by integration" → `permissions: contents: write` is in the YAML; if this appears, the file has been modified incorrectly
+`ldd git-author-reformer-linux-x86_64` confirmed binary is statically linked (musl, no dynamic dependencies).
 
 ## Next Phase Readiness
 
-- `.github/workflows/release.yml` is committed and ready to push
-- Task 2 (live CI verification) must be completed before Phase 4 Plan 02 (install script) begins
-- No blockers on the workflow file itself — all acceptance criteria pass locally
+- `.github/workflows/release.yml` is committed, pushed, and verified in production
+- Phase 4 Plan 02 (install script) may proceed — release artifacts are live at the expected URLs
+- DIST-01, DIST-02, DIST-03, DIST-05 satisfied
 
 ---
 *Phase: 04-ci-distribution*
-*Completed: 2026-05-20 (partial — Task 2 pending)*
+*Completed: 2026-05-20*
