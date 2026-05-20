@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 # install.sh — Detect platform, download binary from GitHub Releases,
-# verify SHA256 checksum, cache binary locally, and run.
-# The binary is cached at ~/.cache/git-author-reformer/ and reused on
-# subsequent runs of the same version — no re-download needed.
+# verify SHA256 checksum, save to the current directory, and run.
+# The binary is saved as ./git-author-reformer in the directory where the
+# curl command was run. Re-running the script reuses the existing binary.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/uinstinct/git-author-reformer/main/install.sh | sh
@@ -66,11 +66,9 @@ fi
 
 BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
 BINARY_NAME="git-author-reformer-${PLATFORM}"
+DEST="${PWD}/git-author-reformer"
 
-CACHE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/git-author-reformer"
-CACHED_BIN="${CACHE_DIR}/git-author-reformer-${VERSION}-${PLATFORM}"
-
-if [ ! -x "${CACHED_BIN}" ]; then
+if [ ! -x "${DEST}" ]; then
   TMPDIR_WORK="$(mktemp -d)"
   trap 'rm -rf "${TMPDIR_WORK}"' EXIT
 
@@ -80,12 +78,11 @@ if [ ! -x "${CACHED_BIN}" ]; then
 
   verify_checksum "${TMPDIR_WORK}/git-author-reformer" "${TMPDIR_WORK}/git-author-reformer.sha256"
 
-  mkdir -p "${CACHE_DIR}"
-  mv "${TMPDIR_WORK}/git-author-reformer" "${CACHED_BIN}"
-  chmod +x "${CACHED_BIN}"
-  printf 'Checksum verified. Binary cached at %s\n' "${CACHED_BIN}" >&2
+  mv "${TMPDIR_WORK}/git-author-reformer" "${DEST}"
+  chmod +x "${DEST}"
+  printf 'Checksum verified. Binary saved as ./git-author-reformer\n' >&2
 else
-  printf 'Using cached %s %s\n' "${BINARY_NAME}" "${VERSION}" >&2
+  printf 'Using existing ./git-author-reformer\n' >&2
 fi
 
-"${CACHED_BIN}" "$@"
+"${DEST}" "$@"
