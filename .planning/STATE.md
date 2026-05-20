@@ -100,3 +100,4 @@ Resume file: None
 | 2026-05-20 | fast | sync Cargo.lock after v0.1.2 release | ✅ |
 | 2026-05-20 | fast | fix clippy::collapsible_match in rewrite.rs and event.rs | ✅ |
 | 2026-05-20 | fast | cache install binary instead of cleaning up | ✅ |
+| 2026-05-20 | fast | update install.sh to always re-download binary | ✅ |
