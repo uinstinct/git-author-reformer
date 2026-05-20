@@ -626,7 +626,7 @@ branch_ref.set_target(new_tip_oid, "rewrite: update to new commit OID")?;
 
 **If this table is empty of critical items:** A1 and A2 should be validated by the first test run.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Walk scope: should refs/remotes/* commits be included in the rewrite walk?**
    - What we know: remotes mirror upstream state. Rewriting remote tracking refs locally doesn't change the upstream; the user force-pushes after rewrite.
