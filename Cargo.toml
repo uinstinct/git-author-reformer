@@ -8,6 +8,10 @@ rust-version = "1.74"
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
 thiserror = "2"
 clap = { version = "4.6", features = ["derive"] }
+ratatui = "0.30"
+crossterm = "0.29"
+nucleo = "0.5"
+signal-hook = "0.4"
 
 [dev-dependencies]
 tempfile = "3"
