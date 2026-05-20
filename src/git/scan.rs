@@ -74,13 +74,20 @@ pub fn scan_drop(
         let old_oid = oid_result?;
         let commit = repo.find_commit(old_oid)?;
 
-        // Use message_raw() — message() strips leading newlines (anti-pattern).
-        // Silent skip on non-UTF-8 for read-only scan (no error propagation needed).
-        let raw_msg = commit.message_raw().unwrap_or("");
-        let message_would_change = message_has_matching_coauthor(raw_msg, target_email);
-
         let any_parent_remapped =
             (0..commit.parent_count()).any(|i| would_remap.contains(&commit.parent_id(i).unwrap()));
+
+        // Mirror drop_coauthor's message_raw() error handling: non-UTF-8 commits fail
+        // there too, so cascade logic still applies but message match is impossible.
+        let message_would_change = match commit.message_raw() {
+            Ok(raw_msg) => message_has_matching_coauthor(raw_msg, target_email),
+            Err(_) => {
+                if any_parent_remapped {
+                    would_remap.insert(old_oid);
+                }
+                continue;
+            }
+        };
 
         if message_would_change || any_parent_remapped {
             would_remap.insert(old_oid);

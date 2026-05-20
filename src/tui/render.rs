@@ -273,6 +273,12 @@ fn render_preview(frame: &mut Frame, area: Rect, op: &PendingOp, scan: &RewriteP
         );
     }
     lines.push(String::new());
+    lines.push(format!(
+        "\u{26a0} This rewrites history. Collaborators will need to re-clone or force-reset. \
+         Push with: git push --force-with-lease --all {}",
+        scan.remote_name.as_deref().unwrap_or("<remote>")
+    ));
+    lines.push(String::new());
     lines.push("Proceed? (Y/N)".to_string());
 
     frame.render_widget(
