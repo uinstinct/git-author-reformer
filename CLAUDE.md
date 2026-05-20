@@ -66,24 +66,18 @@ Use for: classification, drafting, summarization, extraction.
 Do NOT use for: routing, retries, status-code handling, deterministic transforms.
 If code can answer, code answers.
 
-## Rule 6 — Token budgets are not advisory
-
-Per-task: 4,000 tokens. Per-session: 30,000 tokens.
-If approaching budget, summarize and start fresh.
-Surface the breach. Do not silently overrun.
-
-## Rule 7 — Surface conflicts, don't average them
+## Rule 6 — Surface conflicts, don't average them
 
 If two patterns contradict, pick one (more recent / more tested).
 Explain why. Flag the other for cleanup.
 Don't blend conflicting patterns.
 
-## Rule 8 — Read before you write
+## Rule 7 — Read before you write
 
 Before adding code, read exports, immediate callers, shared utilities.
 If unsure why existing code is structured a certain way, ask.
 
-## Rule 9 — Tests verify intent, not just behavior
+## Rule 8 — Tests verify intent, not just behavior
 
 Tests must encode WHY behavior matters, not just WHAT it does.
 A test that can't fail when business logic changes is wrong.
