@@ -43,7 +43,7 @@ pub fn enumerate_coauthors(
     for oid in revwalk {
         let oid = oid?;
         let commit = repo.find_commit(oid)?;
-        let message = commit.message().unwrap_or("");
+        let message = commit.message_raw().unwrap_or("");
         for line in message.lines() {
             let trimmed = line.trim();
             if let Some(rest) = strip_coauthor_prefix(trimmed) {
