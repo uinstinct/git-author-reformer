@@ -84,9 +84,9 @@ fn test_binary_blocks_when_linked_worktree_exists() {
 
 #[test]
 fn test_binary_passes_preflight_on_clean_repo() {
-    // The binary is now a TUI app. In a non-TTY test environment ratatui::init()
-    // panics (no device), so we cannot assert exit 0. Instead, we verify that
-    // preflight passes: none of the preflight error messages appear in stderr.
+    // Preflight passes on a clean repo; the binary then hits the TTY guard
+    // (tests run without a TTY) and exits with NotATerminal — not a preflight
+    // error. We verify that none of the preflight messages appear in stderr.
     let (_dir, repo) = common::create_fixture_repo();
 
     let output = Command::new(env!("CARGO_BIN_EXE_git-author-reformer"))
@@ -109,5 +109,36 @@ fn test_binary_passes_preflight_on_clean_repo() {
     assert!(
         !stderr.contains("Linked worktrees detected"),
         "no worktrees on clean repo, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_binary_exits_cleanly_when_stdin_is_not_a_tty() {
+    // Simulates `curl ... | sh`: stdin is a pipe, not a terminal.
+    // The binary must detect this before ratatui::init() and exit with a
+    // helpful message instead of panicking with "Failed to initialize input reader".
+    let (_dir, repo) = common::create_fixture_repo();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_git-author-reformer"))
+        .current_dir(repo.workdir().unwrap())
+        .stdin(std::process::Stdio::null())
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_COMMON_DIR")
+        .output()
+        .unwrap();
+
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit when stdin is not a TTY"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Not an interactive terminal"),
+        "expected TTY error message, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("Failed to initialize input reader"),
+        "should not see raw crossterm panic, got: {stderr}"
     );
 }
