@@ -5,7 +5,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
     match &mut app.screen {
         Screen::MainMenu { selected } => match key {
             KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1) % 2,
-            KeyCode::Up | KeyCode::Char('k') => *selected = (*selected + 1) % 2,
+            KeyCode::Up | KeyCode::Char('k') => *selected = (*selected + 2 - 1) % 2,
             KeyCode::Enter => {
                 if *selected == 0 {
                     // Rename — load authors
@@ -203,12 +203,9 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             _ => {}
         },
-        Screen::Success { .. } | Screen::Err(_) => match key {
-            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char(_) => {
-                app.should_exit = true;
-            }
-            _ => {}
-        },
+        Screen::Success { .. } | Screen::Err(_) => {
+            app.should_exit = true;
+        }
     }
 }
 
