@@ -1,6 +1,7 @@
 mod common;
 
 use git2::{ObjectType, Repository, Signature};
+use git_author_reformer::git::rewrite::drop_coauthor;
 use git_author_reformer::git::rewrite::rewrite_author;
 
 fn find_commit_by_message<'a>(repo: &'a Repository, target_message: &str) -> git2::Commit<'a> {
@@ -307,5 +308,227 @@ fn test_rewrite_author_preserves_timestamps_and_message_byte_for_byte() {
         new_bob.tree_id(),
         captured_tree_id,
         "Bob's tree OID must be unchanged after rewrite (Phase 2 success criterion 4)"
+    );
+}
+
+// --- Tests 7-12: drop_coauthor (plan 02-03) ---
+
+fn find_commit_containing<'a>(repo: &'a Repository, substr: &str) -> git2::Commit<'a> {
+    let mut revwalk = repo.revwalk().unwrap();
+    revwalk.push_glob("refs/heads/*").unwrap();
+    revwalk.set_sorting(git2::Sort::TOPOLOGICAL).unwrap();
+    for oid_result in revwalk {
+        let oid = oid_result.unwrap();
+        let commit = repo.find_commit(oid).unwrap();
+        if commit.message_raw().unwrap_or("").contains(substr) {
+            return commit;
+        }
+    }
+    panic!(
+        "find_commit_containing: no commit whose message contains {:?}",
+        substr
+    );
+}
+
+#[test]
+fn test_drop_coauthor_removes_matching_trailer() {
+    let (_dir, repo) = common::create_fixture_repo();
+    common::add_commit_with_message(
+        &repo,
+        "Alice",
+        "alice@example.com",
+        "feat: x\n\nCo-authored-by: Bob <bob@example.com>\n",
+    );
+
+    let count = drop_coauthor(&repo, "bob@example.com").unwrap();
+    assert!(
+        count >= 1,
+        "drop_coauthor must rewrite at least 1 commit (DROP-02); got: {count}"
+    );
+
+    let rewritten = find_commit_containing(&repo, "feat: x");
+    let msg = rewritten.message_raw().unwrap_or("");
+    assert!(
+        !msg.to_ascii_lowercase().contains("co-authored-by:"),
+        "DROP-02: rewritten commit must not contain any Co-authored-by line after drop; msg: {:?}",
+        msg
+    );
+    assert!(
+        msg.contains("feat: x"),
+        "DROP-03: commit subject must be preserved after co-author drop; msg: {:?}",
+        msg
+    );
+}
+
+#[test]
+fn test_drop_coauthor_case_insensitive_email_match() {
+    let (_dir, repo) = common::create_fixture_repo();
+    common::add_commit_with_message(
+        &repo,
+        "Alice",
+        "alice@example.com",
+        "feat: ci\n\nCo-Authored-By: Bob <BOB@EXAMPLE.COM>\n",
+    );
+
+    drop_coauthor(&repo, "bob@example.com").unwrap();
+
+    let rewritten = find_commit_containing(&repo, "feat: ci");
+    let msg = rewritten.message_raw().unwrap_or("");
+    assert!(
+        !msg.to_ascii_lowercase().contains("bob@example.com"),
+        "DROP-02: case-insensitive key matching must remove BOB@EXAMPLE.COM when target is bob@example.com; msg: {:?}",
+        msg
+    );
+}
+
+#[test]
+fn test_drop_coauthor_removes_all_occurrences_within_one_commit() {
+    let (_dir, repo) = common::create_fixture_repo();
+    common::add_commit_with_message(
+        &repo,
+        "Alice",
+        "alice@example.com",
+        "feat: pair\n\nCo-authored-by: Bob <bob@example.com>\nCo-authored-by: Bob <bob@example.com>\n",
+    );
+
+    drop_coauthor(&repo, "bob@example.com").unwrap();
+
+    let rewritten = find_commit_containing(&repo, "feat: pair");
+    let msg = rewritten.message_raw().unwrap_or("");
+    let count = msg
+        .to_ascii_lowercase()
+        .matches("co-authored-by:")
+        .count();
+    assert_eq!(
+        count,
+        0,
+        "DROP-02: removes all occurrences within a single commit if duplicated; found {count} remaining in: {:?}",
+        msg
+    );
+}
+
+#[test]
+fn test_drop_coauthor_preserves_other_coauthors_in_same_commit() {
+    let (_dir, repo) = common::create_fixture_repo();
+    common::add_commit_with_message(
+        &repo,
+        "Alice",
+        "alice@example.com",
+        "feat: trio\n\nCo-authored-by: Bob <bob@example.com>\nCo-authored-by: Carol <carol@example.com>\nCo-authored-by: Dave <dave@example.com>\n",
+    );
+
+    drop_coauthor(&repo, "carol@example.com").unwrap();
+
+    let rewritten = find_commit_containing(&repo, "feat: trio");
+    let msg = rewritten.message_raw().unwrap_or("");
+    assert!(
+        msg.contains("bob@example.com"),
+        "DROP-03: Bob must be preserved when only Carol is the drop target; msg: {:?}",
+        msg
+    );
+    assert!(
+        msg.contains("dave@example.com"),
+        "DROP-03: Dave must be preserved when only Carol is the drop target; msg: {:?}",
+        msg
+    );
+    assert!(
+        !msg.contains("carol@example.com"),
+        "DROP-02: Carol must be removed as the drop target; msg: {:?}",
+        msg
+    );
+}
+
+#[test]
+fn test_drop_coauthor_preserves_body_trailers_tree_timestamps_author_committer() {
+    let (_dir, repo) = common::create_fixture_repo();
+    let raw_message = "feat: typo fix\n\nThis fixes the typo described in #123.\n\nSigned-off-by: Alice <alice@example.com>\nCo-authored-by: Bob <bob@example.com>\n";
+    common::add_commit_with_message(&repo, "Alice", "alice@example.com", raw_message);
+
+    let pre_commit = find_commit_containing(&repo, "typo fix");
+    let original_message = pre_commit.message_raw().unwrap_or("").to_string();
+    let original_seconds = pre_commit.author().when().seconds();
+    let original_offset = pre_commit.author().when().offset_minutes();
+    let original_committer_seconds = pre_commit.committer().when().seconds();
+    let original_tree_id = pre_commit.tree_id();
+    drop(pre_commit);
+
+    drop_coauthor(&repo, "bob@example.com").unwrap();
+
+    let rewritten = find_commit_containing(&repo, "typo fix");
+    let new_msg = rewritten.message_raw().unwrap_or("");
+
+    let expected_message =
+        original_message.replace("Co-authored-by: Bob <bob@example.com>\n", "");
+    assert_eq!(
+        new_msg,
+        expected_message.as_str(),
+        "DROP-03: rewritten message must equal original with only the Co-authored-by Bob line removed; got: {:?}",
+        new_msg
+    );
+    assert_eq!(
+        rewritten.author().name().unwrap_or(""),
+        "Alice",
+        "DROP-03: author name must be untouched"
+    );
+    assert_eq!(
+        rewritten.author().email().unwrap_or(""),
+        "alice@example.com",
+        "DROP-03: author email must be untouched"
+    );
+    assert_eq!(
+        rewritten.author().when().seconds(),
+        original_seconds,
+        "DROP-03: author timestamp seconds must be preserved bit-exact"
+    );
+    assert_eq!(
+        rewritten.author().when().offset_minutes(),
+        original_offset,
+        "DROP-03: author timestamp offset_minutes must be preserved bit-exact"
+    );
+    assert_eq!(
+        rewritten.committer().when().seconds(),
+        original_committer_seconds,
+        "DROP-03: committer timestamp seconds must be preserved bit-exact"
+    );
+    assert_eq!(
+        rewritten.tree_id(),
+        original_tree_id,
+        "DROP-03: tree OID must be unchanged after co-author drop"
+    );
+    assert!(
+        new_msg.contains("Signed-off-by: Alice"),
+        "DROP-03: Signed-off-by trailer must be preserved; msg: {:?}",
+        new_msg
+    );
+    assert!(
+        new_msg.contains("This fixes the typo described in #123."),
+        "DROP-03: commit body text must be preserved; msg: {:?}",
+        new_msg
+    );
+}
+
+#[test]
+fn test_drop_coauthor_does_not_rewrite_commits_with_no_matching_trailer() {
+    let (_dir, repo) = common::create_fixture_repo();
+    common::add_commit_with_message(
+        &repo,
+        "Alice",
+        "alice@example.com",
+        "feat: y\n\nCo-authored-by: Carol <carol@example.com>\n",
+    );
+
+    let old_tip_oid = repo.head().unwrap().target().unwrap();
+    let count = drop_coauthor(&repo, "bob@example.com").unwrap();
+    let new_tip_oid = repo.head().unwrap().target().unwrap();
+
+    assert_eq!(
+        count,
+        0,
+        "DROP-02: drop_coauthor must return 0 when no commit matches the target email; got: {count}"
+    );
+    assert_eq!(
+        new_tip_oid,
+        old_tip_oid,
+        "DROP-02: branch tip must be unchanged when nothing was rewritten; old={old_tip_oid}, new={new_tip_oid}"
     );
 }
