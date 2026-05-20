@@ -40,11 +40,11 @@
 
 ### Distribution
 
-- [ ] **DIST-01**: Pre-built static binary for Linux x86_64 (musl target — genuinely no dynamic dependencies)
-- [ ] **DIST-02**: Pre-built binary for macOS Apple Silicon / aarch64 (built on native macOS runner, not cross-compiled)
-- [ ] **DIST-03**: Pre-built binary for macOS Intel / x86_64 (built on native macOS Intel runner, not cross-compiled)
+- [x] **DIST-01**: Pre-built static binary for Linux x86_64 (musl target — genuinely no dynamic dependencies)
+- [x] **DIST-02**: Pre-built binary for macOS Apple Silicon / aarch64 (built on native macOS runner, not cross-compiled)
+- [x] **DIST-03**: Pre-built binary for macOS Intel / x86_64 (built on native macOS Intel runner, not cross-compiled)
 - [ ] **DIST-04**: Single curl command detects OS/arch, downloads the correct binary from GitHub Releases, verifies SHA256 checksum, and runs the tool
-- [ ] **DIST-05**: GitHub Actions CI builds and uploads release binaries on git tag push
+- [x] **DIST-05**: GitHub Actions CI builds and uploads release binaries on git tag push
 
 ## v2 Requirements
 
@@ -95,11 +95,11 @@
 | SAFE-04 | Phase 3 | Pending |
 | SAFE-05 | Phase 3 | Pending |
 | OUT-01 | Phase 3 | Pending |
-| DIST-01 | Phase 4 | Pending |
-| DIST-02 | Phase 4 | Pending |
-| DIST-03 | Phase 4 | Pending |
+| DIST-01 | Phase 4 | Complete |
+| DIST-02 | Phase 4 | Complete |
+| DIST-03 | Phase 4 | Complete |
 | DIST-04 | Phase 4 | Pending |
-| DIST-05 | Phase 4 | Pending |
+| DIST-05 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 23 total
