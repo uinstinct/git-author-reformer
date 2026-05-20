@@ -43,7 +43,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Annotated tag objects pointing at rewritten commits are recreated (not just the ref pointer), verified via `git cat-file tag <tag>` showing the new target SHA
   3. Merge commit parent order is preserved byte-for-byte — `git log --first-parent` and `git bisect` produce identical results before and after rewrite
   4. After a co-author drop, all other trailers, commit message bodies, trees, and timestamps are byte-identical to the originals
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 02-01-PLAN.md — Scaffolding: pub(crate) visibility on reader trailer helpers, empty rewrite module, fixture helpers (create_branch, add_merge_commit, create_annotated_tag)
+  - [ ] 02-02-PLAN.md — TDD: rewrite_author (RENAME-03, RENAME-04) with merge parent order, annotated tag recreation, conditional committer rewrite, detached HEAD
+  - [ ] 02-03-PLAN.md — TDD: drop_coauthor + drop_coauthor_from_message (DROP-02, DROP-03) with case-insensitive match, duplicates, byte-identity preservation
 **Key constraints**:
 - Annotated tag object recreation must occur in the same phase as branch ref updating — do not defer the tag object rewrite to Phase 3
 - Merge commit parent order must be preserved by index (`commit.parent_id(i)` in 0..N order, mapped through OID table) — never use an unordered structure
