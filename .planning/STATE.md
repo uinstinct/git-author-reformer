@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-20)
 Phase: 4 (CI + Distribution) — COMPLETE
 Plan: 2 of 2
 Status: All phases complete — milestone shipped
-Last activity: 2026-05-20 -- Phase 4 planning complete
+Last activity: 2026-05-20 - Completed quick task 260520-rbp: add a script to update the tag for release
 
 Progress: [██████████] 100%
 
@@ -76,6 +76,12 @@ None yet.
 ### Blockers/Concerns
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260520-rbp | add a script to update the tag for release | 2026-05-20 | 5136944 | [260520-rbp-add-a-script-to-update-the-tag-for-relea](.planning/quick/260520-rbp-add-a-script-to-update-the-tag-for-relea/) |
 
 ## Deferred Items
 
