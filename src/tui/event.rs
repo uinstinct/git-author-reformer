@@ -1,9 +1,25 @@
 use crate::tui::app::{App, Screen};
 use crossterm::event::KeyCode;
 
-pub fn handle_key(_app: &mut App, _key: KeyCode) {
-    // Stub — implemented in GREEN step
-    todo!()
+pub fn handle_key(app: &mut App, key: KeyCode) {
+    match &mut app.screen {
+        Screen::MainMenu { selected } => match key {
+            KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1) % 2,
+            KeyCode::Up | KeyCode::Char('k') => *selected = (*selected + 1) % 2,
+            KeyCode::Enter => {
+                let choice = if *selected == 0 { "rename" } else { "drop" };
+                app.screen = Screen::NotImplemented(choice);
+            }
+            KeyCode::Char('q') | KeyCode::Esc => app.should_exit = true,
+            _ => {}
+        },
+        Screen::NotImplemented(_) => match key {
+            KeyCode::Esc | KeyCode::Char('q') => {
+                app.screen = Screen::MainMenu { selected: 0 };
+            }
+            _ => {}
+        },
+    }
 }
 
 #[cfg(test)]
