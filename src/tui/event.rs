@@ -1,6 +1,28 @@
 use crate::tui::app::{apply_coauthor_filter, apply_filter, build_author_nucleo, build_coauthor_nucleo, App, FormField, PendingOp, RenameDraft, Screen};
 use crossterm::event::KeyCode;
 
+fn base64_encode(input: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((input.len() + 2) / 3 * 4);
+    for chunk in input.chunks(3) {
+        let b0 = chunk[0] as usize;
+        let b1 = *chunk.get(1).unwrap_or(&0) as usize;
+        let b2 = *chunk.get(2).unwrap_or(&0) as usize;
+        out.push(T[b0 >> 2] as char);
+        out.push(T[((b0 & 3) << 4) | (b1 >> 4)] as char);
+        out.push(if chunk.len() > 1 { T[((b1 & 15) << 2) | (b2 >> 6)] as char } else { '=' });
+        out.push(if chunk.len() > 2 { T[b2 & 63] as char } else { '=' });
+    }
+    out
+}
+
+fn copy_via_osc52(text: &str) {
+    use std::io::Write;
+    let seq = format!("\x1b]52;c;{}\x07", base64_encode(text.as_bytes()));
+    let _ = std::io::stdout().write_all(seq.as_bytes());
+    let _ = std::io::stdout().flush();
+}
+
 pub fn handle_key(app: &mut App, key: KeyCode) {
     match &mut app.screen {
         Screen::MainMenu { selected } => match key {
@@ -144,7 +166,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                     };
                     match result {
                         Ok(rewritten) => {
-                            app.screen = Screen::Success { rewritten, remote_name };
+                            app.screen = Screen::Success { rewritten, remote_name, copied: false };
                         }
                         Err(e) => app.screen = Screen::Err(e.to_string()),
                     }
@@ -193,7 +215,15 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             _ => {}
         },
-        Screen::Success { .. } | Screen::Err(_) => {
+        Screen::Success { remote_name, copied, .. } => match key {
+            KeyCode::Char('c') => {
+                let remote = remote_name.as_deref().unwrap_or("<remote>");
+                copy_via_osc52(&format!("git push --force-with-lease --all {}", remote));
+                *copied = true;
+            }
+            _ => app.should_exit = true,
+        },
+        Screen::Err(_) => {
             app.should_exit = true;
         }
     }
@@ -687,7 +717,7 @@ mod tests {
         assert!(matches!(app.screen, Screen::Preview { .. }), "should be at Preview before Y");
         handle_key(&mut app, KeyCode::Char('y')); // execute rewrite
         match &app.screen {
-            Screen::Success { rewritten, remote_name: _ } => {
+            Screen::Success { rewritten, .. } => {
                 assert!(*rewritten >= 1, "rewrite_author should have written >= 1 commit");
             }
             Screen::Err(e) => panic!("rewrite failed: {}", e),
@@ -705,7 +735,7 @@ mod tests {
         assert!(matches!(app.screen, Screen::Preview { .. }), "should be at Preview before Y");
         handle_key(&mut app, KeyCode::Char('y')); // execute drop
         match &app.screen {
-            Screen::Success { rewritten, remote_name: _ } => {
+            Screen::Success { rewritten, .. } => {
                 assert!(*rewritten >= 1, "drop_coauthor should have written >= 1 commit");
             }
             Screen::Err(e) => panic!("drop failed: {}", e),
@@ -783,7 +813,7 @@ mod tests {
     fn test_success_any_key_exits() {
         // Any key on Success causes should_exit = true (OUT-01: exit after rewrite).
         let (_dir, mut app) = make_test_app();
-        app.screen = Screen::Success { rewritten: 5, remote_name: Some("origin".into()) };
+        app.screen = Screen::Success { rewritten: 5, remote_name: Some("origin".into()), copied: false };
         handle_key(&mut app, KeyCode::Enter);
         assert!(app.should_exit);
     }
