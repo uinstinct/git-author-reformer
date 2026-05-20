@@ -539,15 +539,15 @@ fn test_preflight_blocks_on_stash() {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Tag-reachable-only commits**
    - What we know: `push_glob("refs/heads/*")` misses commits reachable only from tags (not from any branch)
    - What's unclear: whether any real-world repos have author history only in tag-reachable commits (very rare)
-   - Recommendation: Accepted limitation for v1. Document in code comment. If a user reports missing authors, add tag-reachable walk with explicit peel in a follow-up.
+   - RESOLVED: Accepted limitation for v1. Document in code comment. If a user reports missing authors, add tag-reachable walk with explicit peel in a follow-up.
 
 2. **`clap` in Phase 1 vs defer to Phase 3**
-   - Decision: Add clap now. The binary must respond to `--help` (the first thing curl-and-run users try). Costs nothing at Cargo.toml definition time.
+   - RESOLVED: Add clap now. The binary must respond to `--help` (the first thing curl-and-run users try). Costs nothing at Cargo.toml definition time.
 
 ---
 
