@@ -5,7 +5,7 @@ milestone_name: milestone
 status: complete
 stopped_at: "All 4 phases complete. Milestone v1.0 shipped."
 last_updated: "2026-05-20T00:00:00Z"
-last_activity: 2026-05-20 -- Phase 4 complete (CI verified, 6 artifacts, install script 8/8 tests)
+last_activity: 2026-05-20 - Completed quick task 260520-tty: Fix Terminal I/O error when binary run via curl|sh pipe on macOS
 progress:
   total_phases: 4
   completed_phases: 4
@@ -82,6 +82,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260520-rbp | add a script to update the tag for release | 2026-05-20 | 5136944 | [260520-rbp-add-a-script-to-update-the-tag-for-relea](.planning/quick/260520-rbp-add-a-script-to-update-the-tag-for-relea/) |
+| 260520-tty | Fix Terminal I/O error when binary run via curl\|sh pipe on macOS | 2026-05-20 | 7174552 | [260520-tty-fix-non-tty-stdin-detection](.planning/quick/260520-tty-fix-non-tty-stdin-detection/) |
 
 ## Deferred Items
 
@@ -96,3 +97,4 @@ Stopped at: Roadmap written; STATE.md initialized. Next: `/gsd:plan-phase 1`
 Resume file: None
 | 2026-05-20 | fast | sync Cargo.lock after v0.1.2 release | ✅ |
 | 2026-05-20 | fast | fix clippy::collapsible_match in rewrite.rs and event.rs | ✅ |
+| 2026-05-20 | fast | cache install binary instead of cleaning up | ✅ |
