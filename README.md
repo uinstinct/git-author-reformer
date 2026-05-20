@@ -6,7 +6,7 @@ Rename primary commit authors, fix emails, and drop `Co-authored-by` trailers ac
 
 ## Demo
 
-<video src="demo.mp4" autoplay loop muted playsinline></video>
+https://github.com/user-attachments/assets/ebc8b9f3-3d03-49bb-ae43-f58785269ead
 
 ## Quick Start
 

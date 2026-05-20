@@ -86,6 +86,9 @@ A test that can't fail when business logic changes is wrong.
 
 Remove all git branches and worktrees which are not in use anymore after your work with them is complete.
 
+## Rule 10 - No AI authors when git committing
+
+You should not add AI agent authors and co-authors when committing with git.
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
