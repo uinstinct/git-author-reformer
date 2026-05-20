@@ -62,7 +62,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Non-blocking warnings for GPG/SSH signatures, annotated tags, and refs/notes/commits are displayed before the confirmation prompt — user can still proceed
   5. After a successful rewrite, the tool shows the count of rewritten commits and a force-push reminder using the detected remote name
 **Plans**: 5 plans
-  - [ ] 03-01-PLAN.md — TDD: git::scan module (RewritePreview, scan_rename, scan_drop) + Cargo deps + empty tui module skeleton
+  - [x] 03-01-PLAN.md — TDD: git::scan module (RewritePreview, scan_rename, scan_drop) + Cargo deps + empty tui module skeleton
   - [ ] 03-02-PLAN.md — TUI shell: SIGTERM-aware ratatui init/restore in main.rs + App state machine + main menu (CORE-01)
   - [ ] 03-03-PLAN.md — Rename flow: fuzzy-filterable author list + two-field rename form (RENAME-01, RENAME-02)
   - [ ] 03-04-PLAN.md — Drop flow: fuzzy-filterable co-author list to Preview placeholder (DROP-01)
@@ -96,5 +96,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation + Read Layer | 0/? | Not started | - |
 | 2. Rewrite Engine | 0/? | Not started | - |
-| 3. TUI + Integration | 0/? | Not started | - |
+| 3. TUI + Integration | 1/5 | In Progress|  |
 | 4. CI + Distribution | 0/? | Not started | - |
