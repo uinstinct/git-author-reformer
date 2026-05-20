@@ -27,7 +27,24 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                         }
                     }
                 } else {
-                    app.screen = Screen::NotImplemented("drop"); // Plan 03-04 replaces this
+                    // Drop — load co-authors
+                    match crate::git::reader::enumerate_coauthors(&app.repo) {
+                        Ok(items) => {
+                            let mut nucleo = build_coauthor_nucleo(&items);
+                            let matched = apply_coauthor_filter(&mut nucleo, "");
+                            app.screen = Screen::CoAuthorList {
+                                items,
+                                filter: String::new(),
+                                matched,
+                                nucleo,
+                                selected: 0,
+                            };
+                        }
+                        Err(_) => {
+                            // TODO Plan 03-05: proper error screen
+                            app.screen = Screen::NotImplemented("error");
+                        }
+                    }
                 }
             }
             KeyCode::Char('q') | KeyCode::Esc => app.should_exit = true,
@@ -115,8 +132,41 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             KeyCode::Esc | KeyCode::Char('q') => app.screen = Screen::MainMenu { selected: 0 },
             _ => {}
         },
-        // Stub: full implementation in Task 2 (Plan 03-04)
-        Screen::CoAuthorList { .. } => {}
+        Screen::CoAuthorList {
+            items: _,
+            filter,
+            matched,
+            nucleo,
+            selected,
+        } => match key {
+            KeyCode::Esc => app.screen = Screen::MainMenu { selected: 0 },
+            KeyCode::Down => {
+                if !matched.is_empty() {
+                    *selected = (*selected + 1) % matched.len();
+                }
+            }
+            KeyCode::Up => {
+                if !matched.is_empty() {
+                    *selected = (*selected + matched.len() - 1) % matched.len();
+                }
+            }
+            KeyCode::Enter => {
+                if let Some(target) = matched.get(*selected).cloned() {
+                    app.screen = Screen::Preview(PendingOp::Drop { target });
+                }
+            }
+            KeyCode::Backspace => {
+                filter.pop();
+                *matched = apply_coauthor_filter(nucleo, filter);
+                *selected = 0;
+            }
+            KeyCode::Char(c) => {
+                filter.push(c);
+                *matched = apply_coauthor_filter(nucleo, filter);
+                *selected = 0;
+            }
+            _ => {}
+        },
     }
 }
 
@@ -202,12 +252,14 @@ mod tests {
     }
 
     #[test]
-    fn test_main_menu_enter_with_selected_1_transitions_to_drop_placeholder() {
-        // CORE-01 + DROP-01: selecting Drop still goes to NotImplemented (Plan 03-04 replaces).
-        let (_dir, mut app) = make_test_app();
+    fn test_main_menu_enter_with_selected_1_bare_repo_goes_to_error() {
+        // DROP-01: bare repo has no refs so enumerate_coauthors returns Ok([]).
+        // The screen transitions to CoAuthorList with empty items (not NotImplemented).
+        let (_dir, mut app) = make_test_app(); // bare repo — no commits
         handle_key(&mut app, KeyCode::Down);
         handle_key(&mut app, KeyCode::Enter);
-        assert!(matches!(app.screen, Screen::NotImplemented("drop")));
+        // Bare repo with no refs: enumerate_coauthors returns Ok(vec![]) -> CoAuthorList
+        assert!(matches!(app.screen, Screen::CoAuthorList { .. }));
     }
 
     #[test]
