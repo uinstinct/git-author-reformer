@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation + Read Layer** - Repo detection, pre-flight safety blockers, and read-only author/co-author enumeration
 - [x] **Phase 2: Rewrite Engine** - Commit cascade engine across all branches with annotated tag recreation and correct merge parent ordering
 - [x] **Phase 3: TUI + Integration** - Full ratatui TUI wired to the rewrite engine — both operations end-to-end (completed 2026-05-20)
-- [ ] **Phase 4: CI + Distribution** - Pre-built static binaries on GitHub Releases with a single curl install command
+- [x] **Phase 4: CI + Distribution** - Pre-built static binaries on GitHub Releases with a single curl install command (completed 2026-05-20)
 
 ## Phase Details
 
@@ -83,7 +83,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. The Linux binary has no dynamic library dependencies (verified with `ldd` showing "not a dynamic executable")
 **Plans**: 2 plans
   - [x] 04-01-PLAN.md — GitHub Actions release workflow: 3-platform matrix (linux-musl, macos-aarch64, macos-x86_64-intel), SHA256 upload, ldd verification
-  - [ ] 04-02-PLAN.md — POSIX sh install script: platform detection, checksum-before-chmod, trap cleanup + test harness
+  - [x] 04-02-PLAN.md — POSIX sh install script: platform detection, checksum-before-chmod, trap cleanup + test harness
 **Key constraints**:
 - Linux target must be `x86_64-unknown-linux-musl` (musl, not glibc) to guarantee genuinely no dynamic dependencies — glibc build produces `undefined reference to 'dlopen'` from libcrypto.a
 - macOS aarch64 and x86_64 binaries must be built on native macOS runners, not cross-compiled — Apple SDK licensing blocks Docker-based cross-compilation
@@ -99,4 +99,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation + Read Layer | 4/4 | Complete    | 2026-05-20 |
 | 2. Rewrite Engine | 3/3 | Complete    | 2026-05-20 |
 | 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
-| 4. CI + Distribution | 1/2 | In Progress|  |
+| 4. CI + Distribution | 2/2 | Complete   | 2026-05-20 |
