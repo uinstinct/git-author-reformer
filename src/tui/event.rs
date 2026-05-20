@@ -19,6 +19,8 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             _ => {}
         },
+        // Task 2 (03-03) implements these arms fully
+        Screen::AuthorList { .. } | Screen::RenameForm { .. } | Screen::Preview(_) => {}
     }
 }
 

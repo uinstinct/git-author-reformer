@@ -8,6 +8,8 @@ pub fn render(frame: &mut Frame, app: &App) {
     match &app.screen {
         Screen::MainMenu { selected } => render_main_menu(frame, frame.area(), *selected),
         Screen::NotImplemented(tag) => render_not_implemented(frame, frame.area(), tag),
+        // Task 3 (03-03) implements these arms fully
+        Screen::AuthorList { .. } | Screen::RenameForm { .. } | Screen::Preview(_) => {}
     }
 }
 
