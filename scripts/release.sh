@@ -58,6 +58,7 @@ echo "Current version: $CURRENT_VERSION"
 echo "Select bump type:"
 echo "  1) patch  -> $MAJOR.$MINOR.$((PATCH + 1))"
 echo "  2) minor  -> $MAJOR.$((MINOR + 1)).0"
+echo "  3) custom -> enter version manually"
 printf "Choice [1]: "
 read -r CHOICE
 
@@ -70,8 +71,16 @@ case "$CHOICE" in
   2|minor|m)
     NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
     ;;
+  3|custom|c)
+    printf "Enter version (X.Y.Z): "
+    read -r NEW_VERSION
+    if [[ ! "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "Error: '$NEW_VERSION' is not a valid X.Y.Z semver string" >&2
+      exit 1
+    fi
+    ;;
   *)
-    echo "Error: invalid choice '$CHOICE' — expected 1/patch/p or 2/minor/m" >&2
+    echo "Error: invalid choice '$CHOICE' — expected 1/patch/p, 2/minor/m, or 3/custom/c" >&2
     exit 1
     ;;
 esac
