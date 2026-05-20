@@ -21,9 +21,8 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                                 selected: 0,
                             };
                         }
-                        Err(_e) => {
-                            // TODO Plan 03-05: proper error screen
-                            app.screen = Screen::NotImplemented("error");
+                        Err(e) => {
+                            app.screen = Screen::Err(e.to_string());
                         }
                     }
                 } else {
@@ -40,20 +39,13 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                                 selected: 0,
                             };
                         }
-                        Err(_) => {
-                            // TODO Plan 03-05: proper error screen
-                            app.screen = Screen::NotImplemented("error");
+                        Err(e) => {
+                            app.screen = Screen::Err(e.to_string());
                         }
                     }
                 }
             }
             KeyCode::Char('q') | KeyCode::Esc => app.should_exit = true,
-            _ => {}
-        },
-        Screen::NotImplemented(_) => match key {
-            KeyCode::Esc | KeyCode::Char('q') => {
-                app.screen = Screen::MainMenu { selected: 0 };
-            }
             _ => {}
         },
         Screen::AuthorList {
@@ -102,16 +94,24 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             KeyCode::Enter => {
                 if draft.is_complete() {
-                    // Detach source from borrow before reassigning app.screen
-                    let source = source.clone();
-                    let new_name = std::mem::take(&mut draft.new_name);
-                    let new_email = std::mem::take(&mut draft.new_email);
-                    let op = PendingOp::Rename {
-                        source,
-                        new_name: new_name.trim().to_string(),
-                        new_email: new_email.trim().to_string(),
-                    };
-                    app.screen = Screen::Preview(op);
+                    // Clone source before the borrow ends so we can assign app.screen
+                    let source_clone = source.clone();
+                    let new_name = draft.new_name.trim().to_string();
+                    let new_email = draft.new_email.trim().to_string();
+                    let old_name = source_clone.name.clone();
+                    let old_email = source_clone.email.clone();
+                    // Drop the borrow of app.screen by dropping source/draft
+                    match crate::git::scan::scan_rename(&app.repo, &old_name, &old_email) {
+                        Ok(scan) => {
+                            let op = PendingOp::Rename {
+                                source: source_clone,
+                                new_name,
+                                new_email,
+                            };
+                            app.screen = Screen::Preview { op, scan };
+                        }
+                        Err(e) => app.screen = Screen::Err(e.to_string()),
+                    }
                 }
             }
             KeyCode::Backspace => match draft.focused {
@@ -128,10 +128,39 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             },
             _ => {}
         },
-        Screen::Preview(_) => match key {
-            KeyCode::Esc | KeyCode::Char('q') => app.screen = Screen::MainMenu { selected: 0 },
-            _ => {}
-        },
+        Screen::Preview { op, scan } => {
+            // Clone the data we need before reassigning app.screen (borrow-checker: NLL)
+            let op_clone = op.clone();
+            let remote_name = scan.remote_name.clone();
+            match key {
+                KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
+                    let result = match &op_clone {
+                        PendingOp::Rename { source, new_name, new_email } => {
+                            crate::git::rewrite::rewrite_author(
+                                &app.repo,
+                                &source.name,
+                                &source.email,
+                                new_name,
+                                new_email,
+                            )
+                        }
+                        PendingOp::Drop { target } => {
+                            crate::git::rewrite::drop_coauthor(&app.repo, &target.email)
+                        }
+                    };
+                    match result {
+                        Ok(rewritten) => {
+                            app.screen = Screen::Success { rewritten, remote_name };
+                        }
+                        Err(e) => app.screen = Screen::Err(e.to_string()),
+                    }
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                    app.screen = Screen::MainMenu { selected: 0 };
+                }
+                _ => {}
+            }
+        }
         Screen::CoAuthorList {
             items: _,
             filter,
@@ -152,7 +181,14 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             KeyCode::Enter => {
                 if let Some(target) = matched.get(*selected).cloned() {
-                    app.screen = Screen::Preview(PendingOp::Drop { target });
+                    let target_email = target.email.clone();
+                    match crate::git::scan::scan_drop(&app.repo, &target_email) {
+                        Ok(scan) => {
+                            let op = PendingOp::Drop { target };
+                            app.screen = Screen::Preview { op, scan };
+                        }
+                        Err(e) => app.screen = Screen::Err(e.to_string()),
+                    }
                 }
             }
             KeyCode::Backspace => {
@@ -164,6 +200,12 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                 filter.push(c);
                 *matched = apply_coauthor_filter(nucleo, filter);
                 *selected = 0;
+            }
+            _ => {}
+        },
+        Screen::Success { .. } | Screen::Err(_) => match key {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Char(_) => {
+                app.should_exit = true;
             }
             _ => {}
         },
@@ -189,7 +231,7 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         let sig = git2::Signature::now("Alice", "alice@example.com").unwrap();
         let tree_oid = {
-            let mut tb = repo.treebuilder(None).unwrap();
+            let tb = repo.treebuilder(None).unwrap();
             tb.write().unwrap()
         };
         {
@@ -276,15 +318,6 @@ mod tests {
         let (_dir, mut app) = make_test_app();
         handle_key(&mut app, KeyCode::Esc);
         assert!(app.should_exit);
-    }
-
-    #[test]
-    fn test_not_implemented_esc_returns_to_main_menu() {
-        // Pressing Esc on the placeholder screen returns to main menu.
-        let (_dir, mut app) = make_test_app();
-        app.screen = Screen::NotImplemented("rename");
-        handle_key(&mut app, KeyCode::Esc);
-        assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
     // ---- New tests for Plan 03-03 ----
@@ -434,7 +467,8 @@ mod tests {
 
     #[test]
     fn test_rename_form_enter_with_complete_draft_transitions_to_preview() {
-        // RENAME-02: Enter with both fields filled transitions to Preview.
+        // RENAME-05: Enter with both fields filled transitions to Preview with scan data.
+        // Uses a bare repo so scan_rename returns Ok(RewritePreview { affected_count: 0, .. }).
         let (_dir, mut app) = make_test_app();
         let mut draft = RenameDraft::default();
         draft.new_name = "Bob".to_string();
@@ -444,13 +478,12 @@ mod tests {
             draft,
         };
         handle_key(&mut app, KeyCode::Enter);
-        assert!(matches!(app.screen, Screen::Preview(PendingOp::Rename { .. })));
+        assert!(matches!(app.screen, Screen::Preview { op: PendingOp::Rename { .. }, .. }));
     }
 
     #[test]
     fn test_rename_form_esc_returns_to_main_menu_v1() {
         // v1: no back-stack — Esc from RenameForm goes to MainMenu (not AuthorList).
-        // Wave 4/5 may add a back-stack (out of scope here).
         let (_dir, mut app) = make_test_app();
         app.screen = Screen::RenameForm {
             source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
@@ -468,7 +501,7 @@ mod tests {
         let repo = git2::Repository::init(dir.path()).unwrap();
         let sig = git2::Signature::now("Alice", "alice@example.com").unwrap();
         let tree_oid = {
-            let mut tb = repo.treebuilder(None).unwrap();
+            let tb = repo.treebuilder(None).unwrap();
             tb.write().unwrap()
         };
         {
@@ -535,16 +568,17 @@ mod tests {
 
     #[test]
     fn test_coauthor_list_enter_transitions_to_preview_drop() {
-        // DROP-01: selecting a co-author transitions to Screen::Preview(PendingOp::Drop).
+        // DROP-01: selecting a co-author transitions to Screen::Preview { op: Drop, .. }.
+        // Uses a bare repo so scan_drop returns Ok(RewritePreview { affected_count: 0, .. }).
         let (_dir, mut app) = make_test_app();
         app.screen = make_coauthor_list_screen(&[("Bob", "bob@x")]);
         handle_key(&mut app, KeyCode::Enter);
         match &app.screen {
-            Screen::Preview(PendingOp::Drop { target }) => {
+            Screen::Preview { op: PendingOp::Drop { target }, .. } => {
                 assert_eq!(target.name, "Bob");
                 assert_eq!(target.email, "bob@x");
             }
-            _ => panic!("expected Preview(PendingOp::Drop)"),
+            _ => panic!("expected Preview {{ op: PendingOp::Drop, .. }}"),
         }
     }
 
@@ -564,5 +598,215 @@ mod tests {
         app.screen = make_coauthor_list_screen(&[]);
         handle_key(&mut app, KeyCode::Enter); // must not panic
         assert!(matches!(app.screen, Screen::CoAuthorList { .. }));
+    }
+
+    // ---- New tests for Plan 03-05 Task 2 ----
+
+    #[test]
+    fn test_rename_form_enter_calls_scan_and_transitions_to_preview_with_data() {
+        // RENAME-05: Enter on complete form calls scan_rename and stores RewritePreview in Preview.
+        let (_dir, mut app) = make_test_app_with_commits();
+        // First navigate to author list
+        handle_key(&mut app, KeyCode::Enter);
+        // Select Alice (first entry) and press Enter
+        handle_key(&mut app, KeyCode::Enter);
+        // Fill in rename form
+        for c in "NewAlice".chars() {
+            handle_key(&mut app, KeyCode::Char(c));
+        }
+        handle_key(&mut app, KeyCode::Tab);
+        for c in "newalice@example.com".chars() {
+            handle_key(&mut app, KeyCode::Char(c));
+        }
+        handle_key(&mut app, KeyCode::Enter);
+        // Should be in Preview with real scan data
+        match &app.screen {
+            Screen::Preview { op: PendingOp::Rename { source, .. }, scan } => {
+                assert_eq!(source.name, "Alice");
+                // scan_rename returns a real RewritePreview (affected_count >= 1 for one-commit repo)
+                assert!(scan.affected_count >= 1, "scan.affected_count must reflect actual commits");
+            }
+            _ => panic!("expected Preview {{ op: Rename, scan }}, got: {:?}",
+                match &app.screen {
+                    Screen::MainMenu { .. } => "MainMenu",
+                    Screen::AuthorList { .. } => "AuthorList",
+                    Screen::RenameForm { .. } => "RenameForm",
+                    Screen::Preview { .. } => "Preview",
+                    Screen::CoAuthorList { .. } => "CoAuthorList",
+                    Screen::Success { .. } => "Success",
+                    Screen::Err(_) => "Err",
+                }),
+        }
+    }
+
+    #[test]
+    fn test_coauthor_list_enter_calls_scan_drop_and_transitions_to_preview_with_data() {
+        // DROP-04: Enter on co-author list calls scan_drop and stores RewritePreview in Preview.
+        let (_dir, mut app) = make_test_app_with_coauthors();
+        // Navigate to Drop
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Enter);
+        // Should be in CoAuthorList; Bob is there
+        // Press Enter to select Bob
+        handle_key(&mut app, KeyCode::Enter);
+        match &app.screen {
+            Screen::Preview { op: PendingOp::Drop { target }, scan } => {
+                assert_eq!(target.name, "Bob");
+                // The commit has a Co-authored-by Bob trailer, so affected_count >= 1
+                assert!(scan.affected_count >= 1, "scan.affected_count must reflect actual commits");
+            }
+            _ => panic!("expected Preview {{ op: Drop, scan }}"),
+        }
+    }
+
+    #[test]
+    fn test_preview_y_transitions_directly_to_success() {
+        // RENAME-05/DROP-04: Y on Preview runs the rewrite synchronously (Strategy A)
+        // and transitions DIRECTLY to Success (no intermediate Executing state).
+        let (_dir, mut app) = make_test_app_with_commits();
+        use crate::git::scan::RewritePreview;
+        let scan = RewritePreview {
+            affected_count: 0,
+            signed_commit_count: 0,
+            annotated_tags_affected: vec![],
+            has_notes_ref: false,
+            remote_name: None,
+        };
+        let op = PendingOp::Rename {
+            source: AuthorIdentity { name: "Nobody".into(), email: "nobody@x".into(), commit_count: 0 },
+            new_name: "Someone".into(),
+            new_email: "someone@x".into(),
+        };
+        app.screen = Screen::Preview { op, scan };
+        handle_key(&mut app, KeyCode::Char('y'));
+        // Must transition to Success (not Executing, not stay on Preview)
+        assert!(
+            matches!(app.screen, Screen::Success { .. }),
+            "Y on Preview must transition directly to Success (Strategy A — synchronous)"
+        );
+    }
+
+    #[test]
+    fn test_preview_y_calls_rewrite_author_for_rename_op() {
+        // RENAME-05: Y on Preview with Rename op calls rewrite_author and transitions to Success.
+        let (_dir, mut app) = make_test_app_with_commits();
+        // Go through the full flow to get a real Preview with real scan data
+        handle_key(&mut app, KeyCode::Enter); // -> AuthorList
+        handle_key(&mut app, KeyCode::Enter); // select Alice -> RenameForm
+        for c in "Alice2".chars() { handle_key(&mut app, KeyCode::Char(c)); }
+        handle_key(&mut app, KeyCode::Tab);
+        for c in "alice2@example.com".chars() { handle_key(&mut app, KeyCode::Char(c)); }
+        handle_key(&mut app, KeyCode::Enter); // -> Preview
+        assert!(matches!(app.screen, Screen::Preview { .. }), "should be at Preview before Y");
+        handle_key(&mut app, KeyCode::Char('y')); // execute rewrite
+        match &app.screen {
+            Screen::Success { rewritten, remote_name: _ } => {
+                assert!(*rewritten >= 1, "rewrite_author should have written >= 1 commit");
+            }
+            Screen::Err(e) => panic!("rewrite failed: {}", e),
+            _ => panic!("expected Success after Y on Preview"),
+        }
+    }
+
+    #[test]
+    fn test_preview_y_calls_drop_coauthor_for_drop_op() {
+        // DROP-04: Y on Preview with Drop op calls drop_coauthor and transitions to Success.
+        let (_dir, mut app) = make_test_app_with_coauthors();
+        handle_key(&mut app, KeyCode::Down); // select Drop
+        handle_key(&mut app, KeyCode::Enter); // -> CoAuthorList
+        handle_key(&mut app, KeyCode::Enter); // select Bob -> Preview
+        assert!(matches!(app.screen, Screen::Preview { .. }), "should be at Preview before Y");
+        handle_key(&mut app, KeyCode::Char('y')); // execute drop
+        match &app.screen {
+            Screen::Success { rewritten, remote_name: _ } => {
+                assert!(*rewritten >= 1, "drop_coauthor should have written >= 1 commit");
+            }
+            Screen::Err(e) => panic!("drop failed: {}", e),
+            _ => panic!("expected Success after Y on Preview"),
+        }
+    }
+
+    #[test]
+    fn test_preview_n_returns_to_main_menu() {
+        // Pressing N on Preview cancels without writing and returns to MainMenu.
+        let (_dir, mut app) = make_test_app();
+        use crate::git::scan::RewritePreview;
+        let scan = RewritePreview {
+            affected_count: 0,
+            signed_commit_count: 0,
+            annotated_tags_affected: vec![],
+            has_notes_ref: false,
+            remote_name: None,
+        };
+        app.screen = Screen::Preview {
+            op: PendingOp::Drop {
+                target: crate::git::types::CoAuthorEntry {
+                    name: "x".into(), email: "x@x".into(), commit_count: 0,
+                },
+            },
+            scan,
+        };
+        handle_key(&mut app, KeyCode::Char('n'));
+        assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
+    }
+
+    #[test]
+    fn test_preview_esc_returns_to_main_menu() {
+        // Pressing Esc on Preview cancels and returns to MainMenu.
+        let (_dir, mut app) = make_test_app();
+        use crate::git::scan::RewritePreview;
+        let scan = RewritePreview {
+            affected_count: 0, signed_commit_count: 0,
+            annotated_tags_affected: vec![], has_notes_ref: false, remote_name: None,
+        };
+        app.screen = Screen::Preview {
+            op: PendingOp::Drop {
+                target: crate::git::types::CoAuthorEntry {
+                    name: "x".into(), email: "x@x".into(), commit_count: 0,
+                },
+            },
+            scan,
+        };
+        handle_key(&mut app, KeyCode::Esc);
+        assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
+    }
+
+    #[test]
+    fn test_preview_other_keys_ignored() {
+        // Pressing an unrelated key on Preview does nothing.
+        let (_dir, mut app) = make_test_app();
+        use crate::git::scan::RewritePreview;
+        let scan = RewritePreview {
+            affected_count: 0, signed_commit_count: 0,
+            annotated_tags_affected: vec![], has_notes_ref: false, remote_name: None,
+        };
+        app.screen = Screen::Preview {
+            op: PendingOp::Drop {
+                target: crate::git::types::CoAuthorEntry {
+                    name: "x".into(), email: "x@x".into(), commit_count: 0,
+                },
+            },
+            scan,
+        };
+        handle_key(&mut app, KeyCode::F(1)); // arbitrary unrelated key
+        assert!(matches!(app.screen, Screen::Preview { .. }));
+    }
+
+    #[test]
+    fn test_success_any_key_exits() {
+        // Any key on Success causes should_exit = true (OUT-01: exit after rewrite).
+        let (_dir, mut app) = make_test_app();
+        app.screen = Screen::Success { rewritten: 5, remote_name: Some("origin".into()) };
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(app.should_exit);
+    }
+
+    #[test]
+    fn test_err_any_key_exits() {
+        // Any key on Err causes should_exit = true.
+        let (_dir, mut app) = make_test_app();
+        app.screen = Screen::Err("something went wrong".into());
+        handle_key(&mut app, KeyCode::Esc);
+        assert!(app.should_exit);
     }
 }
