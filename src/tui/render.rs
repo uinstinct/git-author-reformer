@@ -19,8 +19,8 @@ pub fn render(frame: &mut Frame, app: &App) {
         Screen::CoAuthorList { filter, matched, selected, .. } => {
             render_coauthor_list(frame, frame.area(), filter, matched, *selected)
         }
-        Screen::Success { rewritten, remote_name } => {
-            render_success(frame, frame.area(), *rewritten, remote_name)
+        Screen::Success { rewritten, remote_name, copied } => {
+            render_success(frame, frame.area(), *rewritten, remote_name, *copied)
         }
         Screen::Err(msg) => render_err(frame, frame.area(), msg),
     }
@@ -299,11 +299,13 @@ fn render_success(
     area: Rect,
     rewritten: usize,
     remote_name: &Option<String>,
+    copied: bool,
 ) {
     let remote = remote_name.as_deref().unwrap_or("<remote>");
+    let copy_hint = if copied { "Copied!  |  Any key to exit" } else { "Press 'c' to copy  |  Any key to exit" };
     let text = format!(
-        "\u{2714} Rewrote {} commit(s).\n\nRun the following to update the remote:\n\n  git push --force-with-lease --all {}\n\nPress any key to exit.",
-        rewritten, remote
+        "\u{2714} Rewrote {} commit(s).\n\nRun the following to update the remote:\n\n  git push --force-with-lease --all {}\n\n{}",
+        rewritten, remote, copy_hint
     );
     frame.render_widget(
         Paragraph::new(text)
