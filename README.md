@@ -4,8 +4,6 @@ A terminal UI tool for rewriting git commit author history.
 
 Rename primary commit authors, fix emails, and drop `Co-authored-by` trailers across an entire repository in seconds. Ships as a single pre-built binary: download with one command, then run directly.
 
-## Demo
-
 https://github.com/user-attachments/assets/ebc8b9f3-3d03-49bb-ae43-f58785269ead
 
 ## Quick Start
