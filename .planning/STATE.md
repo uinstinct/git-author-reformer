@@ -94,3 +94,5 @@ None yet.
 Last session: 2026-05-20T13:13:40.379Z
 Stopped at: Roadmap written; STATE.md initialized. Next: `/gsd:plan-phase 1`
 Resume file: None
+| 2026-05-20 | fast | sync Cargo.lock after v0.1.2 release | ✅ |
+| 2026-05-20 | fast | fix clippy::collapsible_match in rewrite.rs and event.rs | ✅ |
