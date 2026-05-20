@@ -28,3 +28,39 @@ pub fn add_commit_with_message(repo: &Repository, name: &str, email: &str, messa
     repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&head])
         .unwrap();
 }
+
+pub fn create_branch(repo: &Repository, name: &str, target: &git2::Commit) {
+    repo.branch(name, target, false).unwrap();
+}
+
+pub fn add_merge_commit(
+    repo: &Repository,
+    name: &str,
+    email: &str,
+    message: &str,
+    parent0: &git2::Commit,
+    parent1: &git2::Commit,
+) {
+    let sig = Signature::new(name, email, &git2::Time::new(1_000_002, 0)).unwrap();
+    let tree = parent0.tree().unwrap();
+    repo.commit(
+        Some("HEAD"),
+        &sig,
+        &sig,
+        message,
+        &tree,
+        &[parent0, parent1],
+    )
+    .unwrap();
+}
+
+pub fn create_annotated_tag(repo: &Repository, name: &str, target: &git2::Commit, message: &str) {
+    let tagger = Signature::new(
+        "Tagger",
+        "tagger@example.com",
+        &git2::Time::new(2_000_000, 0),
+    )
+    .unwrap();
+    repo.tag(name, target.as_object(), &tagger, message, false)
+        .unwrap();
+}
