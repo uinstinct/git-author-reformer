@@ -12,8 +12,8 @@ git-author-reformer is built in four phases on a strict dependency chain. Phase 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation + Read Layer** - Repo detection, pre-flight safety blockers, and read-only author/co-author enumeration
-- [ ] **Phase 2: Rewrite Engine** - Commit cascade engine across all branches with annotated tag recreation and correct merge parent ordering
+- [x] **Phase 1: Foundation + Read Layer** - Repo detection, pre-flight safety blockers, and read-only author/co-author enumeration
+- [x] **Phase 2: Rewrite Engine** - Commit cascade engine across all branches with annotated tag recreation and correct merge parent ordering
 - [x] **Phase 3: TUI + Integration** - Full ratatui TUI wired to the rewrite engine — both operations end-to-end (completed 2026-05-20)
 - [ ] **Phase 4: CI + Distribution** - Pre-built static binaries on GitHub Releases with a single curl install command
 
@@ -94,7 +94,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation + Read Layer | 0/? | Not started | - |
-| 2. Rewrite Engine | 0/? | Not started | - |
+| 1. Foundation + Read Layer | 4/4 | Complete    | 2026-05-20 |
+| 2. Rewrite Engine | 3/3 | Complete    | 2026-05-20 |
 | 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
 | 4. CI + Distribution | 0/? | Not started | - |
