@@ -17,6 +17,9 @@ pub enum AppError {
     #[error("Commit {0} has a non-UTF-8 message — cannot rewrite (git2 requires valid UTF-8)")]
     NonUtf8Message(git2::Oid),
 
+    #[error("Not an interactive terminal.\ngit-author-reformer is a TUI application — run it directly, not inside a pipe.\nExample: git-author-reformer")]
+    NotATerminal,
+
     #[error("Terminal I/O error: {0}")]
     Io(#[from] std::io::Error),
 }

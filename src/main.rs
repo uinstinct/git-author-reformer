@@ -1,5 +1,6 @@
 use clap::Parser;
 use git_author_reformer::{error, git, tui};
+use std::io::IsTerminal;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
@@ -19,16 +20,23 @@ fn run() -> Result<(), error::AppError> {
     git::preflight::check_stash(&repo)?;
     git::preflight::check_worktrees(&repo)?;
 
-    // 3. ratatui::init() installs panic hook + raw mode + alternate screen.
+    // 3. TTY guard — must run after pre-flight so those errors still surface
+    //    cleanly, but before ratatui::init() which panics on a non-TTY stdin.
+    //    Triggered when the binary is invoked via `curl ... | sh`.
+    if !std::io::stdin().is_terminal() {
+        return Err(error::AppError::NotATerminal);
+    }
+
+    // 4. ratatui::init() installs panic hook + raw mode + alternate screen.
     let mut terminal = ratatui::init();
 
-    // 4. Run the TUI; capture result so we can ALWAYS call restore().
+    // 5. Run the TUI; capture result so we can ALWAYS call restore().
     let result = tui::run_with_terminal(&mut terminal, repo, term_flag);
 
-    // 5. Restore on EVERY exit path — happy and error.
+    // 6. Restore on EVERY exit path — happy and error.
     ratatui::restore();
 
-    // 6. Propagate after restore so terminal is clean before printing.
+    // 7. Propagate after restore so terminal is clean before printing.
     result
 }
 
