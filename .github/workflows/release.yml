@@ -88,5 +88,5 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
-          ldd "${{ matrix.asset_name }}" 2>&1 | grep -q "not a dynamic executable" \
+          ldd "${{ matrix.asset_name }}" 2>&1 | grep -qE "(not a dynamic executable|statically linked)" \
             || { echo "ERROR: Binary is not fully static!" >&2; ldd "${{ matrix.asset_name }}" >&2; exit 1; }
