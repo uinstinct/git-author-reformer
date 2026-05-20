@@ -594,12 +594,12 @@ frame.set_cursor_position((cursor_x, cursor_y));
 | A2 | Checking `refs/notes/commits` plus `note_default_ref()` covers all practical notes setups | Pattern 5 | If user stores notes under a fully custom ref not matching these, warning is missed; acceptable for v1 |
 | A3 | `tick(10)` is sufficient to guarantee nucleo match completion for < 200 authors | Pattern 3 | If a slow machine takes > 10ms, filtered list lags one keystroke; increase timeout |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **notes check scope (SAFE-05)**
    - What we know: `repo.note_default_ref()` returns the configured default; `refs/notes/commits` is the canonical location
    - What's unclear: Whether edge-case repos with custom notes refs (neither "origin" nor default) need coverage
-   - Recommendation: Check both `note_default_ref()` and `refs/notes/commits` — covers all standard cases
+   - RESOLVED: Check both `note_default_ref()` and `refs/notes/commits` — covers all standard cases; custom notes refs outside these are out of scope for v1
 
 ## Environment Availability
 
