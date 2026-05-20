@@ -1,12 +1,15 @@
 {
+  "mode": "yolo",
+  "granularity": "coarse",
+  "parallelization": true,
   "model_profile": "balanced",
   "commit_docs": true,
   "workflow": {
     "research": true,
-    "plan_check": false,
-    "verifier": false,
+    "plan_check": true,
+    "verifier": true,
     "auto_advance": true,
-    "nyquist_validation": true,
+    "nyquist_validation": false,
     "pattern_mapper": true,
     "ui_phase": false,
     "ui_safety_gate": false,
@@ -19,6 +22,33 @@
     "research_before_questions": true,
     "skip_discuss": true,
     "use_worktrees": true
+  },
+  "ship": {
+    "pr_body_sections": [
+      {
+        "heading": "User Stories & Acceptance Criteria",
+        "enabled": true,
+        "source": "REQUIREMENTS.md ## User Stories || REQUIREMENTS.md ## Acceptance Criteria",
+        "fallback": "- Acceptance criteria are covered by the linked requirements and verification evidence."
+      },
+      {
+        "heading": "Risks & Dependencies",
+        "enabled": true,
+        "source": "PLAN.md ## Risks || PLAN.md ## Dependencies",
+        "fallback": "- No known high-risk rollout dependencies."
+      },
+      {
+        "heading": "Success Metrics & Release Criteria",
+        "enabled": false,
+        "source": "REQUIREMENTS.md ## Definition of Done || VERIFICATION.md ## Release Criteria",
+        "fallback": "- Release when automated verification and required manual checks pass."
+      },
+      {
+        "heading": "Stakeholder Review & Approval",
+        "enabled": false,
+        "template": "- Product owner approval pending for {phase_name}."
+      }
+    ]
   },
   "intel": {
     "enabled": true
