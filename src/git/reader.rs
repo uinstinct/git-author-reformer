@@ -81,7 +81,7 @@ fn build_revwalk(repo: &git2::Repository) -> Result<git2::Revwalk<'_>, git2::Err
 
 /// Case-insensitive strip of "co-authored-by:" prefix.
 /// Returns the rest of the line after the prefix, or None if no match.
-fn strip_coauthor_prefix(line: &str) -> Option<&str> {
+pub(crate) fn strip_coauthor_prefix(line: &str) -> Option<&str> {
     let prefix = "co-authored-by:";
     let slice = line.get(..prefix.len())?;
     if slice.eq_ignore_ascii_case(prefix) {
@@ -92,7 +92,7 @@ fn strip_coauthor_prefix(line: &str) -> Option<&str> {
 }
 
 /// Parse "Name <email>" -> (name, email). Returns None on malformed input.
-fn parse_coauthor_value(value: &str) -> Option<(String, String)> {
+pub(crate) fn parse_coauthor_value(value: &str) -> Option<(String, String)> {
     let lt = value.rfind('<')?;
     let gt = value.rfind('>')?;
     if gt < lt {
