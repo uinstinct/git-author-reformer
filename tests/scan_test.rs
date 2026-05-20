@@ -2,7 +2,7 @@ mod common;
 
 use git2::{Repository, Signature, Time};
 use git_author_reformer::git::rewrite::{drop_coauthor, rewrite_author};
-use git_author_reformer::git::scan::{scan_drop, scan_rename, RewritePreview};
+use git_author_reformer::git::scan::{scan_drop, scan_rename};
 
 // ---------------------------------------------------------------------------
 // Helper: build the same two-commit author + cascade fixture in a fresh repo.
