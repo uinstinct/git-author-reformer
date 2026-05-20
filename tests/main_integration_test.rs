@@ -84,6 +84,9 @@ fn test_binary_blocks_when_linked_worktree_exists() {
 
 #[test]
 fn test_binary_passes_preflight_on_clean_repo() {
+    // The binary is now a TUI app. In a non-TTY test environment ratatui::init()
+    // panics (no device), so we cannot assert exit 0. Instead, we verify that
+    // preflight passes: none of the preflight error messages appear in stderr.
     let (_dir, repo) = common::create_fixture_repo();
 
     let output = Command::new(env!("CARGO_BIN_EXE_git-author-reformer"))
@@ -94,8 +97,17 @@ fn test_binary_passes_preflight_on_clean_repo() {
         .output()
         .unwrap();
 
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "expected exit code 0 on clean repo"
+        !stderr.contains("Not inside a git repository"),
+        "preflight should pass on clean repo, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("Stash entries detected"),
+        "no stash on clean repo, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("Linked worktrees detected"),
+        "no worktrees on clean repo, got: {stderr}"
     );
 }
