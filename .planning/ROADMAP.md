@@ -61,7 +61,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The drop flow shows a fuzzy-filterable co-author list, then a confirmation prompt showing exact affected commit count before any write
   4. Non-blocking warnings for GPG/SSH signatures, annotated tags, and refs/notes/commits are displayed before the confirmation prompt — user can still proceed
   5. After a successful rewrite, the tool shows the count of rewritten commits and a force-push reminder using the detected remote name
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 03-01-PLAN.md — TDD: git::scan module (RewritePreview, scan_rename, scan_drop) + Cargo deps + empty tui module skeleton
+  - [ ] 03-02-PLAN.md — TUI shell: SIGTERM-aware ratatui init/restore in main.rs + App state machine + main menu (CORE-01)
+  - [ ] 03-03-PLAN.md — Rename flow: fuzzy-filterable author list + two-field rename form (RENAME-01, RENAME-02)
+  - [ ] 03-04-PLAN.md — Drop flow: fuzzy-filterable co-author list to Preview placeholder (DROP-01)
+  - [ ] 03-05-PLAN.md — Preview + warnings + execute + result: scan integration, Y/N confirm, success screen with force-push reminder (RENAME-05, DROP-04, SAFE-03, SAFE-04, SAFE-05, OUT-01)
 **Key constraints**:
 - `ratatui::init()` and a SIGTERM handler (calling `ratatui::restore()`) must be the first code written — before any app logic — to prevent terminal stuck in raw mode on panic or signal
 - Target author entry is a free-text two-field form (new name + new email), not a second list picker
