@@ -1,24 +1,28 @@
+use crate::git::scan::RewritePreview;
 use crate::git::types::{AuthorIdentity, CoAuthorEntry};
 use crate::tui::app::{App, FormField, MenuChoice, PendingOp, RenameDraft, Screen};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
-use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph};
+use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph, Wrap};
 
 pub fn render(frame: &mut Frame, app: &App) {
     match &app.screen {
         Screen::MainMenu { selected } => render_main_menu(frame, frame.area(), *selected),
-        Screen::NotImplemented(tag) => render_not_implemented(frame, frame.area(), tag),
         Screen::AuthorList { filter, matched, selected, .. } => {
             render_author_list(frame, frame.area(), filter, matched, *selected)
         }
         Screen::RenameForm { source, draft } => {
             render_rename_form(frame, frame.area(), source, draft)
         }
-        Screen::Preview(op) => render_preview_placeholder(frame, frame.area(), op),
+        Screen::Preview { op, scan } => render_preview(frame, frame.area(), op, scan),
         Screen::CoAuthorList { filter, matched, selected, .. } => {
             render_coauthor_list(frame, frame.area(), filter, matched, *selected)
         }
+        Screen::Success { rewritten, remote_name } => {
+            render_success(frame, frame.area(), *rewritten, remote_name)
+        }
+        Screen::Err(msg) => render_err(frame, frame.area(), msg),
     }
 }
 
@@ -47,14 +51,6 @@ fn render_main_menu(frame: &mut Frame, area: Rect, selected: usize) {
     frame.render_widget(
         Paragraph::new("\u{2191}/\u{2193} or j/k: move   Enter: select   q/Esc: quit"),
         footer,
-    );
-}
-
-fn render_not_implemented(frame: &mut Frame, area: Rect, tag: &str) {
-    let msg = format!("'{tag}' flow not implemented yet — press Esc/q to return");
-    frame.render_widget(
-        Paragraph::new(msg).block(Block::bordered().title("TODO")),
-        area,
     );
 }
 
@@ -228,21 +224,94 @@ fn render_coauthor_list(
     );
 }
 
-fn render_preview_placeholder(frame: &mut Frame, area: Rect, op: &PendingOp) {
-    // Plan 03-05 REPLACES this body with the real warnings + confirmation render.
-    let summary = match op {
+fn render_preview(frame: &mut Frame, area: Rect, op: &PendingOp, scan: &RewritePreview) {
+    let [header, body, footer] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Fill(1),
+        Constraint::Length(2),
+    ])
+    .areas(area);
+
+    // Header: one-line operation summary
+    let header_text = match op {
         PendingOp::Rename { source, new_name, new_email } => {
-            format!("RENAME: {} <{}> \u{2192} {} <{}>", source.name, source.email, new_name, new_email)
+            format!(
+                "Rename: {} <{}> \u{2192} {} <{}>",
+                source.name, source.email, new_name, new_email
+            )
         }
         PendingOp::Drop { target } => {
-            format!("DROP co-author: {} <{}>", target.name, target.email)
+            format!("Drop co-author: {} <{}>", target.name, target.email)
         }
     };
     frame.render_widget(
-        Paragraph::new(format!(
-            "Preview placeholder \u{2014} Plan 03-05 will scan and render warnings.\n\n{summary}\n\nEsc: cancel"
-        ))
-        .block(Block::bordered().title("Preview (WIP)")),
+        Paragraph::new(header_text).block(Block::bordered().title("Preview")),
+        header,
+    );
+
+    // Body: affected count + conditional warnings + proceed prompt
+    let mut lines = vec![
+        format!("This will rewrite {} commit(s).", scan.affected_count),
+        String::new(),
+    ];
+    if scan.signed_commit_count > 0 {
+        lines.push(format!(
+            "\u{26a0} {} commit(s) in the affected set are GPG/SSH-signed \u{2014} signatures will be invalidated.",
+            scan.signed_commit_count
+        ));
+    }
+    if !scan.annotated_tags_affected.is_empty() {
+        lines.push(format!(
+            "\u{26a0} Annotated tag(s) will be recreated: {}",
+            scan.annotated_tags_affected.join(", ")
+        ));
+    }
+    if scan.has_notes_ref {
+        lines.push(
+            "\u{26a0} refs/notes/commits exists \u{2014} notes reference old SHAs and will be orphaned by the rewrite."
+                .to_string(),
+        );
+    }
+    lines.push(String::new());
+    lines.push("Proceed? (Y/N)".to_string());
+
+    frame.render_widget(
+        Paragraph::new(lines.join("\n"))
+            .block(Block::bordered())
+            .wrap(Wrap { trim: false }),
+        body,
+    );
+
+    frame.render_widget(
+        Paragraph::new("Y / Enter: confirm   N / Esc: cancel"),
+        footer,
+    );
+}
+
+fn render_success(
+    frame: &mut Frame,
+    area: Rect,
+    rewritten: usize,
+    remote_name: &Option<String>,
+) {
+    let remote = remote_name.as_deref().unwrap_or("<remote>");
+    let text = format!(
+        "\u{2714} Rewrote {} commit(s).\n\nRun the following to update the remote:\n\n  git push --force-with-lease --all {}\n\nPress any key to exit.",
+        rewritten, remote
+    );
+    frame.render_widget(
+        Paragraph::new(text)
+            .block(Block::bordered().title("Success"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+fn render_err(frame: &mut Frame, area: Rect, msg: &str) {
+    frame.render_widget(
+        Paragraph::new(format!("\u{2717} Error\n\n{msg}\n\nPress any key to exit."))
+            .block(Block::bordered().title("Error"))
+            .wrap(Wrap { trim: false }),
         area,
     );
 }
