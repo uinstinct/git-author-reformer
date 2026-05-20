@@ -38,8 +38,8 @@ pub fn scan_rename(
         let identity_matches = commit.author().name().unwrap_or("") == old_name
             && commit.author().email().unwrap_or("") == old_email;
 
-        let any_parent_remapped = (0..commit.parent_count())
-            .any(|i| would_remap.contains(&commit.parent_id(i).unwrap()));
+        let any_parent_remapped =
+            (0..commit.parent_count()).any(|i| would_remap.contains(&commit.parent_id(i).unwrap()));
 
         if identity_matches || any_parent_remapped {
             would_remap.insert(old_oid);
@@ -79,8 +79,8 @@ pub fn scan_drop(
         let raw_msg = commit.message_raw().unwrap_or("");
         let message_would_change = message_has_matching_coauthor(raw_msg, target_email);
 
-        let any_parent_remapped = (0..commit.parent_count())
-            .any(|i| would_remap.contains(&commit.parent_id(i).unwrap()));
+        let any_parent_remapped =
+            (0..commit.parent_count()).any(|i| would_remap.contains(&commit.parent_id(i).unwrap()));
 
         if message_would_change || any_parent_remapped {
             would_remap.insert(old_oid);
@@ -127,7 +127,12 @@ fn collect_warnings(
     let annotated_tags_affected = collect_affected_annotated_tags(repo, would_remap)?;
     let has_notes = check_has_notes_ref(repo);
     let remote = detect_remote_name(repo);
-    Ok((signed_commit_count, annotated_tags_affected, has_notes, remote))
+    Ok((
+        signed_commit_count,
+        annotated_tags_affected,
+        has_notes,
+        remote,
+    ))
 }
 
 /// Count commits in the cascade set that carry a GPG or SSH signature header (SAFE-03).
@@ -147,8 +152,7 @@ fn count_signed_commits(
 
 /// Check whether a commit carries a GPG or SSH signature header.
 fn commit_is_signed(commit: &git2::Commit) -> bool {
-    commit.header_field_bytes("gpgsig").is_ok()
-        || commit.header_field_bytes("sshsig").is_ok()
+    commit.header_field_bytes("gpgsig").is_ok() || commit.header_field_bytes("sshsig").is_ok()
 }
 
 /// Collect short names (stripped of "refs/tags/" prefix) of annotated tags whose
@@ -190,8 +194,7 @@ fn check_has_notes_ref(repo: &git2::Repository) -> bool {
     let default_ref = repo
         .note_default_ref()
         .unwrap_or_else(|_| "refs/notes/commits".to_string());
-    repo.find_reference(&default_ref).is_ok()
-        || repo.find_reference("refs/notes/commits").is_ok()
+    repo.find_reference(&default_ref).is_ok() || repo.find_reference("refs/notes/commits").is_ok()
 }
 
 /// Resolve the remote name: prefer "origin", else first remote, else None (OUT-01).
@@ -199,10 +202,7 @@ fn check_has_notes_ref(repo: &git2::Repository) -> bool {
 fn detect_remote_name(repo: &git2::Repository) -> Option<String> {
     let remotes = repo.remotes().ok()?;
     // remotes.iter() yields Result<Option<&str>, Error>; flatten twice to get &str items.
-    let names: Vec<&str> = remotes
-        .iter()
-        .filter_map(|r| r.ok().flatten())
-        .collect();
+    let names: Vec<&str> = remotes.iter().filter_map(|r| r.ok().flatten()).collect();
     if names.contains(&"origin") {
         Some("origin".to_string())
     } else {
