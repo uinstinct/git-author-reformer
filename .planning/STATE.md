@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-20)
 Phase: 4 (CI + Distribution) — COMPLETE
 Plan: 2 of 2
 Status: All phases complete — milestone shipped
-Last activity: 2026-05-20 - Completed quick task 260520-rbp: add a script to update the tag for release
+Last activity: 2026-05-20 - Completed quick task 260520-scm: add 'c' shortcut to copy push command on Success screen
 
 Progress: [██████████] 100%
 
@@ -84,6 +84,7 @@ None yet.
 | 260520-rbp | add a script to update the tag for release | 2026-05-20 | 5136944 | [260520-rbp-add-a-script-to-update-the-tag-for-relea](.planning/quick/260520-rbp-add-a-script-to-update-the-tag-for-relea/) |
 | 260520-tty | Fix Terminal I/O error when binary run via curl\|sh pipe on macOS | 2026-05-20 | 7174552 | [260520-tty-fix-non-tty-stdin-detection](.planning/quick/260520-tty-fix-non-tty-stdin-detection/) |
 | 260520-sfz | Fix not-an-interactive-terminal error when running git-author-reformer directly | 2026-05-20 | 006cb1d | [260520-sfz-fix-not-an-interactive-terminal-error-wh](.planning/quick/260520-sfz-fix-not-an-interactive-terminal-error-wh/) |
+| 260520-scm | add 'c' shortcut to copy push command on Success screen | 2026-05-20 | 225c4e5 | [260520-scm-when-the-following-prompt-occurs-run-the](.planning/quick/260520-scm-when-the-following-prompt-occurs-run-the/) |
 
 ## Deferred Items
 
