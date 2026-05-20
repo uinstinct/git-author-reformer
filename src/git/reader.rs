@@ -25,7 +25,12 @@ pub fn enumerate_authors(
         })
         .collect();
 
-    result.sort_by(|a, b| b.commit_count.cmp(&a.commit_count));
+    result.sort_by(|a, b| {
+        b.commit_count
+            .cmp(&a.commit_count)
+            .then_with(|| a.name.cmp(&b.name))
+            .then_with(|| a.email.cmp(&b.email))
+    });
     Ok(result)
 }
 
@@ -58,7 +63,12 @@ pub fn enumerate_coauthors(
         })
         .collect();
 
-    result.sort_by(|a, b| b.commit_count.cmp(&a.commit_count));
+    result.sort_by(|a, b| {
+        b.commit_count
+            .cmp(&a.commit_count)
+            .then_with(|| a.name.cmp(&b.name))
+            .then_with(|| a.email.cmp(&b.email))
+    });
     Ok(result)
 }
 
@@ -73,7 +83,8 @@ fn build_revwalk(repo: &git2::Repository) -> Result<git2::Revwalk<'_>, git2::Err
 /// Returns the rest of the line after the prefix, or None if no match.
 fn strip_coauthor_prefix(line: &str) -> Option<&str> {
     let prefix = "co-authored-by:";
-    if line.len() >= prefix.len() && line[..prefix.len()].eq_ignore_ascii_case(prefix) {
+    let slice = line.get(..prefix.len())?;
+    if slice.eq_ignore_ascii_case(prefix) {
         Some(&line[prefix.len()..])
     } else {
         None
