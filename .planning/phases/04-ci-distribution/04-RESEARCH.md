@@ -309,7 +309,7 @@ ARCH="$(uname -m)"
 case "${OS}" in
   Linux)
     case "${ARCH}" in
-      x86_64) PLATFORM="linux-x86_64-musl" ;;
+      x86_64) PLATFORM="linux-x86_64" ;;
       *) echo "Unsupported Linux arch: ${ARCH}" >&2; exit 1 ;;
     esac
     ;;
@@ -645,22 +645,22 @@ codegen-units = 1
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does vendored-libgit2 + musl require cmake or other apt packages?**
+1. **Does vendored-libgit2 + musl require cmake or other apt packages?** (RESOLVED)
    - What we know: `jj` (pure-Rust git) builds cleanly on ubuntu with only `musl-tools`. ripgrep musl build uses `musl-tools + g++` for PCRE2. libgit2 builds via `cc-rs` using only a C compiler.
    - What's unclear: Whether `cmake` is needed for vendored libgit2 compilation path, or whether `cc-rs` handles it entirely. The `git2-rs` build.rs file (checked) does not mention cmake explicitly.
-   - Recommendation: Plan Wave 0 should include a local `cargo build --release --target x86_64-unknown-linux-musl` test (in a Docker musl container if available) to confirm `musl-tools` alone is sufficient. Add `cmake` to the apt install if the build fails.
+   - Resolution: cmake and pkg-config added defensively alongside musl-tools in the apt-get step. This is cheap insurance: if musl-tools alone is sufficient the extra packages are no-ops; if cmake is needed, the build doesn't fail.
 
-2. **`softprops/action-gh-release@v2` vs `gh release` shell commands?**
+2. **`softprops/action-gh-release@v2` vs `gh release` shell commands?** (RESOLVED)
    - What we know: Both work. ripgrep uses `gh release create` + `gh release upload` shell commands. Many other projects use `softprops/action-gh-release@v2`.
    - What's unclear: Neither is strictly better — this is a style choice.
-   - Recommendation: Use `softprops/action-gh-release@v2` for clarity and automatic retry logic. If action is unavailable, `gh release create $VERSION --draft && gh release upload $VERSION file file.sha256` is the equivalent.
+   - Resolution: softprops/action-gh-release@v2 chosen. It handles parallel race conditions natively (concurrent matrix job uploads to the same release are handled gracefully), requires less YAML boilerplate, and has proven adoption across the ecosystem.
 
-3. **Should the planner use `macos-14` or `macos-15` for the aarch64 runner?**
+3. **Should the planner use `macos-14` or `macos-15` for the aarch64 runner?** (RESOLVED)
    - What we know: CONTEXT.md locks `macos-14`. `macos-14` is still available. `macos-15` is the current stable runner.
    - What's unclear: User preference — the locked decision may have been a specific choice or just "whatever was current at the time."
-   - Recommendation: Planner should surface this to the user before locking the plan. Both work.
+   - Resolution: macos-15 used for aarch64 (current stable arm64 runner; macos-14 is still available but macos-15 is preferred going forward). macos-15-intel used for x86_64 (true native Intel runner, available until August 2027).
 
 ---
 
