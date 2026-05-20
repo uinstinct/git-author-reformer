@@ -1,4 +1,4 @@
-use crate::tui::app::{App, FormField, PendingOp, RenameDraft, Screen};
+use crate::tui::app::{apply_filter, build_author_nucleo, App, FormField, PendingOp, RenameDraft, Screen};
 use crossterm::event::KeyCode;
 
 pub fn handle_key(app: &mut App, key: KeyCode) {
@@ -7,8 +7,28 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1) % 2,
             KeyCode::Up | KeyCode::Char('k') => *selected = (*selected + 1) % 2,
             KeyCode::Enter => {
-                let choice = if *selected == 0 { "rename" } else { "drop" };
-                app.screen = Screen::NotImplemented(choice);
+                if *selected == 0 {
+                    // Rename — load authors
+                    match crate::git::reader::enumerate_authors(&app.repo) {
+                        Ok(items) => {
+                            let mut nucleo = build_author_nucleo(&items);
+                            let matched = apply_filter(&mut nucleo, "");
+                            app.screen = Screen::AuthorList {
+                                items,
+                                filter: String::new(),
+                                matched,
+                                nucleo,
+                                selected: 0,
+                            };
+                        }
+                        Err(_e) => {
+                            // TODO Plan 03-05: proper error screen
+                            app.screen = Screen::NotImplemented("error");
+                        }
+                    }
+                } else {
+                    app.screen = Screen::NotImplemented("drop"); // Plan 03-04 replaces this
+                }
             }
             KeyCode::Char('q') | KeyCode::Esc => app.should_exit = true,
             _ => {}
@@ -19,8 +39,82 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             _ => {}
         },
-        // Task 2 (03-03) implements these arms fully
-        Screen::AuthorList { .. } | Screen::RenameForm { .. } | Screen::Preview(_) => {}
+        Screen::AuthorList {
+            items: _,
+            filter,
+            matched,
+            nucleo,
+            selected,
+        } => match key {
+            KeyCode::Esc => app.screen = Screen::MainMenu { selected: 0 },
+            KeyCode::Down => {
+                if !matched.is_empty() {
+                    *selected = (*selected + 1) % matched.len();
+                }
+            }
+            KeyCode::Up => {
+                if !matched.is_empty() {
+                    *selected = (*selected + matched.len() - 1) % matched.len();
+                }
+            }
+            KeyCode::Enter => {
+                if let Some(src) = matched.get(*selected).cloned() {
+                    app.screen = Screen::RenameForm {
+                        source: src,
+                        draft: RenameDraft::default(),
+                    };
+                }
+            }
+            KeyCode::Backspace => {
+                filter.pop();
+                *matched = apply_filter(nucleo, filter);
+                *selected = 0;
+            }
+            KeyCode::Char(c) => {
+                filter.push(c);
+                *matched = apply_filter(nucleo, filter);
+                *selected = 0;
+            }
+            _ => {}
+        },
+        Screen::RenameForm { source, draft } => match key {
+            KeyCode::Esc => app.screen = Screen::MainMenu { selected: 0 }, // v1: no back-stack
+            KeyCode::Tab | KeyCode::BackTab => {
+                let toggled = draft.focused.clone().toggle();
+                draft.focused = toggled;
+            }
+            KeyCode::Enter => {
+                if draft.is_complete() {
+                    // Detach source from borrow before reassigning app.screen
+                    let source = source.clone();
+                    let new_name = std::mem::take(&mut draft.new_name);
+                    let new_email = std::mem::take(&mut draft.new_email);
+                    let op = PendingOp::Rename {
+                        source,
+                        new_name: new_name.trim().to_string(),
+                        new_email: new_email.trim().to_string(),
+                    };
+                    app.screen = Screen::Preview(op);
+                }
+            }
+            KeyCode::Backspace => match draft.focused {
+                FormField::Name => {
+                    draft.new_name.pop();
+                }
+                FormField::Email => {
+                    draft.new_email.pop();
+                }
+            },
+            KeyCode::Char(c) => match draft.focused {
+                FormField::Name => draft.new_name.push(c),
+                FormField::Email => draft.new_email.push(c),
+            },
+            _ => {}
+        },
+        Screen::Preview(_) => match key {
+            KeyCode::Esc | KeyCode::Char('q') => app.screen = Screen::MainMenu { selected: 0 },
+            _ => {}
+        },
     }
 }
 
@@ -28,7 +122,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
 mod tests {
     use super::*;
     use crate::git::types::AuthorIdentity;
-    use crate::tui::app::{build_author_nucleo, apply_filter};
+    use crate::tui::app::{apply_filter, build_author_nucleo};
     use tempfile::TempDir;
 
     fn make_test_app() -> (TempDir, App) {
