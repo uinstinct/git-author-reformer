@@ -65,7 +65,11 @@ pub fn rewrite_author(
 
             // Use message_raw(), NEVER message() — message() strips leading newlines
             // and breaks byte-identity (Anti-Pattern from RESEARCH.md).
-            let raw_msg = commit.message_raw().unwrap_or("");
+            // Propagate error on non-UTF-8: git2 Repository::commit() requires &str,
+            // so we cannot preserve non-UTF-8 messages; fail explicitly (WR-05).
+            let raw_msg = commit
+                .message_raw()
+                .map_err(|_| crate::error::AppError::NonUtf8Message(old_oid))?;
 
             // update_ref = None: never update a ref mid-walk. Refs are updated in Section D.
             // repo.commit(None, ...) — update_ref is None so refs are untouched per-commit.
@@ -222,7 +226,11 @@ pub fn drop_coauthor(
         let old_oid = oid_result?;
         let commit = repo.find_commit(old_oid)?;
 
-        let raw_msg = commit.message_raw().unwrap_or("");
+        // Propagate error on non-UTF-8: git2 Repository::commit() requires &str,
+        // so we cannot preserve non-UTF-8 messages; fail explicitly (WR-05).
+        let raw_msg = commit
+            .message_raw()
+            .map_err(|_| crate::error::AppError::NonUtf8Message(old_oid))?;
         let new_msg = drop_coauthor_from_message(raw_msg, target_email);
         // Normalize CRLF before comparing to avoid false-positive rewrites on CRLF commits.
         // drop_coauthor_from_message normalizes \r\n -> \n; without this, CRLF commits

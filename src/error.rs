@@ -13,4 +13,7 @@ pub enum AppError {
 
     #[error("Git error: {0}")]
     Git(#[from] git2::Error),
+
+    #[error("Commit {0} has a non-UTF-8 message — cannot rewrite (git2 requires valid UTF-8)")]
+    NonUtf8Message(git2::Oid),
 }
