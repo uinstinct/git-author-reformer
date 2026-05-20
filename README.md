@@ -1,8 +1,12 @@
 # git-author-reformer
 
-A terminal UI tool for rewriting git commit author history — no git installation required.
+A terminal UI tool for rewriting git commit author history.
 
 Rename primary commit authors, fix emails, and drop `Co-authored-by` trailers across an entire repository in seconds. Ships as a single pre-built binary: download with one command, then run directly.
+
+## Demo
+
+<video src="demo.mp4" autoplay loop muted playsinline></video>
 
 ## Quick Start
 
@@ -18,18 +22,11 @@ The script detects your platform, downloads the matching binary, verifies its SH
 ./git-author-reformer
 ```
 
-To pin a specific version:
-
-```sh
-VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/uinstinct/git-author-reformer/main/install.sh | sh
-```
-
 ## What It Does
 
 - **Rename authors** — change name and/or email on commits attributed to a given identity
 - **Bulk rewrite** — rewrites every commit reachable from every branch and tag
 - **Drop co-authors** — remove specific `Co-authored-by` trailer lines from commit messages
-- **No git required** — uses libgit2 (vendored), so it works even if `git` is not installed
 
 ## Usage
 
