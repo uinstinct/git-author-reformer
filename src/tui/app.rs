@@ -1,4 +1,8 @@
+use crate::git::types::AuthorIdentity;
 use git2::Repository;
+use nucleo::pattern::{CaseMatching, Normalization};
+use nucleo::{Config, Nucleo};
+use std::sync::Arc;
 
 pub struct App {
     pub repo: Repository,
@@ -9,6 +13,66 @@ pub struct App {
 pub enum Screen {
     MainMenu { selected: usize },
     NotImplemented(&'static str),
+    AuthorList {
+        items: Vec<AuthorIdentity>,
+        filter: String,
+        matched: Vec<AuthorIdentity>,
+        nucleo: Nucleo<AuthorIdentity>,
+        selected: usize,
+    },
+    RenameForm {
+        source: AuthorIdentity,
+        draft: RenameDraft,
+    },
+    /// Placeholder destination for RenameForm Enter — Plan 03-05 adds scan field.
+    Preview(PendingOp),
+}
+
+pub struct RenameDraft {
+    pub new_name: String,
+    pub new_email: String,
+    pub focused: FormField,
+}
+
+impl Default for RenameDraft {
+    fn default() -> Self {
+        Self {
+            new_name: String::new(),
+            new_email: String::new(),
+            focused: FormField::Name,
+        }
+    }
+}
+
+impl RenameDraft {
+    pub fn is_complete(&self) -> bool {
+        !self.new_name.trim().is_empty() && !self.new_email.trim().is_empty()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FormField {
+    Name,
+    Email,
+}
+
+impl FormField {
+    pub fn toggle(self) -> Self {
+        match self {
+            Self::Name => Self::Email,
+            Self::Email => Self::Name,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum PendingOp {
+    Rename {
+        source: AuthorIdentity,
+        new_name: String,
+        new_email: String,
+    },
+    // Drop variant added in Plan 03-04
 }
 
 pub enum MenuChoice {
@@ -45,6 +109,28 @@ impl App {
             should_exit: false,
         }
     }
+}
+
+pub fn build_author_nucleo(items: &[AuthorIdentity]) -> Nucleo<AuthorIdentity> {
+    let nucleo = Nucleo::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+    let injector = nucleo.injector();
+    for item in items {
+        let display = format!("{} <{}>", item.name, item.email);
+        let item = item.clone();
+        injector.push(item, move |_, cols| {
+            cols[0] = display.clone().into();
+        });
+    }
+    nucleo
+}
+
+pub fn apply_filter(nucleo: &mut Nucleo<AuthorIdentity>, query: &str) -> Vec<AuthorIdentity> {
+    nucleo
+        .pattern
+        .reparse(0, query, CaseMatching::Ignore, Normalization::Smart, false);
+    nucleo.tick(10);
+    let snap = nucleo.snapshot();
+    snap.matched_items(..).map(|m| m.data.clone()).collect()
 }
 
 #[cfg(test)]
