@@ -28,7 +28,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. A repo containing stash entries or linked worktrees is detected at startup and blocked with a clear message — no rewrite proceeds
   3. Enumerating authors on a fixture repo returns the correct Name+Email pairs with accurate per-identity commit counts, sorted by count descending
   4. Enumerating co-authors parses Co-authored-by trailers case-insensitively and returns unique identities with accurate commit counts
-**Plans**: TBD
+**Plans**: 4 plans
+  - [ ] 01-01-PLAN.md — Cargo manifest, AppError, types, module scaffolding, shared test fixtures
+  - [ ] 01-02-PLAN.md — TDD: preflight gates (check_stash, check_worktrees)
+  - [ ] 01-03-PLAN.md — TDD: read layer (enumerate_authors, enumerate_coauthors)
+  - [ ] 01-04-PLAN.md — main.rs wiring + end-to-end CLI tests
 
 ### Phase 2: Rewrite Engine
 **Goal**: The commit cascade engine — rewrite commits across all branches with correct parent mapping, handle annotated tags, no TUI
