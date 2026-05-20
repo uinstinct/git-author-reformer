@@ -5,7 +5,7 @@ milestone_name: milestone
 status: complete
 stopped_at: "All 4 phases complete. Milestone v1.0 shipped."
 last_updated: "2026-05-20T00:00:00Z"
-last_activity: 2026-05-20 - Completed quick task 260520-tty: Fix Terminal I/O error when binary run via curl|sh pipe on macOS
+last_activity: 2026-05-20 - Completed quick task 260520-sfz: Fix not-an-interactive-terminal error when running git-author-reformer directly
 progress:
   total_phases: 4
   completed_phases: 4
@@ -83,6 +83,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260520-rbp | add a script to update the tag for release | 2026-05-20 | 5136944 | [260520-rbp-add-a-script-to-update-the-tag-for-relea](.planning/quick/260520-rbp-add-a-script-to-update-the-tag-for-relea/) |
 | 260520-tty | Fix Terminal I/O error when binary run via curl\|sh pipe on macOS | 2026-05-20 | 7174552 | [260520-tty-fix-non-tty-stdin-detection](.planning/quick/260520-tty-fix-non-tty-stdin-detection/) |
+| 260520-sfz | Fix not-an-interactive-terminal error when running git-author-reformer directly | 2026-05-20 | 006cb1d | [260520-sfz-fix-not-an-interactive-terminal-error-wh](.planning/quick/260520-sfz-fix-not-an-interactive-terminal-error-wh/) |
 
 ## Deferred Items
 
