@@ -1,4 +1,4 @@
-use crate::tui::app::{apply_filter, build_author_nucleo, App, FormField, PendingOp, RenameDraft, Screen};
+use crate::tui::app::{apply_coauthor_filter, apply_filter, build_author_nucleo, build_coauthor_nucleo, App, FormField, PendingOp, RenameDraft, Screen};
 use crossterm::event::KeyCode;
 
 pub fn handle_key(app: &mut App, key: KeyCode) {
@@ -27,7 +27,24 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                         }
                     }
                 } else {
-                    app.screen = Screen::NotImplemented("drop"); // Plan 03-04 replaces this
+                    // Drop — load co-authors
+                    match crate::git::reader::enumerate_coauthors(&app.repo) {
+                        Ok(items) => {
+                            let mut nucleo = build_coauthor_nucleo(&items);
+                            let matched = apply_coauthor_filter(&mut nucleo, "");
+                            app.screen = Screen::CoAuthorList {
+                                items,
+                                filter: String::new(),
+                                matched,
+                                nucleo,
+                                selected: 0,
+                            };
+                        }
+                        Err(_) => {
+                            // TODO Plan 03-05: proper error screen
+                            app.screen = Screen::NotImplemented("error");
+                        }
+                    }
                 }
             }
             KeyCode::Char('q') | KeyCode::Esc => app.should_exit = true,
@@ -115,6 +132,41 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             KeyCode::Esc | KeyCode::Char('q') => app.screen = Screen::MainMenu { selected: 0 },
             _ => {}
         },
+        Screen::CoAuthorList {
+            items: _,
+            filter,
+            matched,
+            nucleo,
+            selected,
+        } => match key {
+            KeyCode::Esc => app.screen = Screen::MainMenu { selected: 0 },
+            KeyCode::Down => {
+                if !matched.is_empty() {
+                    *selected = (*selected + 1) % matched.len();
+                }
+            }
+            KeyCode::Up => {
+                if !matched.is_empty() {
+                    *selected = (*selected + matched.len() - 1) % matched.len();
+                }
+            }
+            KeyCode::Enter => {
+                if let Some(target) = matched.get(*selected).cloned() {
+                    app.screen = Screen::Preview(PendingOp::Drop { target });
+                }
+            }
+            KeyCode::Backspace => {
+                filter.pop();
+                *matched = apply_coauthor_filter(nucleo, filter);
+                *selected = 0;
+            }
+            KeyCode::Char(c) => {
+                filter.push(c);
+                *matched = apply_coauthor_filter(nucleo, filter);
+                *selected = 0;
+            }
+            _ => {}
+        },
     }
 }
 
@@ -200,12 +252,14 @@ mod tests {
     }
 
     #[test]
-    fn test_main_menu_enter_with_selected_1_transitions_to_drop_placeholder() {
-        // CORE-01 + DROP-01: selecting Drop still goes to NotImplemented (Plan 03-04 replaces).
-        let (_dir, mut app) = make_test_app();
+    fn test_main_menu_enter_with_selected_1_bare_repo_goes_to_error() {
+        // DROP-01: bare repo has no refs so enumerate_coauthors returns Ok([]).
+        // The screen transitions to CoAuthorList with empty items (not NotImplemented).
+        let (_dir, mut app) = make_test_app(); // bare repo — no commits
         handle_key(&mut app, KeyCode::Down);
         handle_key(&mut app, KeyCode::Enter);
-        assert!(matches!(app.screen, Screen::NotImplemented("drop")));
+        // Bare repo with no refs: enumerate_coauthors returns Ok(vec![]) -> CoAuthorList
+        assert!(matches!(app.screen, Screen::CoAuthorList { .. }));
     }
 
     #[test]
@@ -404,5 +458,111 @@ mod tests {
         };
         handle_key(&mut app, KeyCode::Esc);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
+    }
+
+    // ---- New tests for Plan 03-04 (DROP-01) ----
+
+    /// Creates a non-bare repo with one commit that has a Co-authored-by trailer.
+    fn make_test_app_with_coauthors() -> (TempDir, App) {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let sig = git2::Signature::now("Alice", "alice@example.com").unwrap();
+        let tree_oid = {
+            let mut tb = repo.treebuilder(None).unwrap();
+            tb.write().unwrap()
+        };
+        {
+            let tree = repo.find_tree(tree_oid).unwrap();
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                "initial\n\nCo-authored-by: Bob <bob@example.com>",
+                &tree,
+                &[],
+            )
+            .unwrap();
+        }
+        (dir, App::new(repo))
+    }
+
+    fn make_coauthor_list_screen(names: &[(&str, &str)]) -> Screen {
+        use crate::git::types::CoAuthorEntry;
+        let items: Vec<CoAuthorEntry> = names
+            .iter()
+            .map(|(n, e)| CoAuthorEntry {
+                name: n.to_string(),
+                email: e.to_string(),
+                commit_count: 1,
+            })
+            .collect();
+        let mut nucleo = build_coauthor_nucleo(&items);
+        let matched = apply_coauthor_filter(&mut nucleo, "");
+        Screen::CoAuthorList {
+            items,
+            filter: String::new(),
+            matched,
+            nucleo,
+            selected: 0,
+        }
+    }
+
+    #[test]
+    fn test_main_menu_enter_drop_now_loads_coauthor_list() {
+        // DROP-01: pressing Enter on 'Drop a co-author' loads the co-author list.
+        let (_dir, mut app) = make_test_app_with_coauthors();
+        // Navigate to "Drop a co-author" (index 1)
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(matches!(app.screen, Screen::CoAuthorList { .. }));
+    }
+
+    #[test]
+    fn test_coauthor_list_typing_updates_matched() {
+        // DROP-01: typing a character filters the co-author list.
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_coauthor_list_screen(&[("Alice", "alice@x"), ("Bob", "bob@x")]);
+        handle_key(&mut app, KeyCode::Char('b'));
+        match &app.screen {
+            Screen::CoAuthorList { filter, matched, selected, .. } => {
+                assert_eq!(filter, "b");
+                assert!(matched.iter().any(|m| m.name == "Bob"), "Bob should match 'b'");
+                assert_eq!(*selected, 0, "selection resets on filter change");
+            }
+            _ => panic!("expected CoAuthorList"),
+        }
+    }
+
+    #[test]
+    fn test_coauthor_list_enter_transitions_to_preview_drop() {
+        // DROP-01: selecting a co-author transitions to Screen::Preview(PendingOp::Drop).
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_coauthor_list_screen(&[("Bob", "bob@x")]);
+        handle_key(&mut app, KeyCode::Enter);
+        match &app.screen {
+            Screen::Preview(PendingOp::Drop { target }) => {
+                assert_eq!(target.name, "Bob");
+                assert_eq!(target.email, "bob@x");
+            }
+            _ => panic!("expected Preview(PendingOp::Drop)"),
+        }
+    }
+
+    #[test]
+    fn test_coauthor_list_esc_returns_to_main_menu() {
+        // DROP-01: Esc from CoAuthorList returns to MainMenu.
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_coauthor_list_screen(&[("Bob", "bob@x")]);
+        handle_key(&mut app, KeyCode::Esc);
+        assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
+    }
+
+    #[test]
+    fn test_coauthor_list_empty_repo_still_safe() {
+        // DROP-01: empty co-author list — Enter does nothing (no panic on empty index).
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_coauthor_list_screen(&[]);
+        handle_key(&mut app, KeyCode::Enter); // must not panic
+        assert!(matches!(app.screen, Screen::CoAuthorList { .. }));
     }
 }
