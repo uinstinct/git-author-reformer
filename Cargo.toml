@@ -1,0 +1,18 @@
+[package]
+name = "git-author-reformer"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+
+[dependencies]
+git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
+thiserror = "2"
+clap = { version = "4.6", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
