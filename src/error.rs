@@ -16,4 +16,7 @@ pub enum AppError {
 
     #[error("Commit {0} has a non-UTF-8 message — cannot rewrite (git2 requires valid UTF-8)")]
     NonUtf8Message(git2::Oid),
+
+    #[error("Terminal I/O error: {0}")]
+    Io(#[from] std::io::Error),
 }
