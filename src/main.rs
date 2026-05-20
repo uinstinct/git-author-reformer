@@ -1,6 +1,3 @@
-mod error;
-mod git;
-
 use clap::Parser;
 
 #[derive(Parser)]
