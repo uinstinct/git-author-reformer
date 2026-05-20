@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation + Read Layer** - Repo detection, pre-flight safety blockers, and read-only author/co-author enumeration
 - [ ] **Phase 2: Rewrite Engine** - Commit cascade engine across all branches with annotated tag recreation and correct merge parent ordering
-- [ ] **Phase 3: TUI + Integration** - Full ratatui TUI wired to the rewrite engine — both operations end-to-end
+- [x] **Phase 3: TUI + Integration** - Full ratatui TUI wired to the rewrite engine — both operations end-to-end (completed 2026-05-20)
 - [ ] **Phase 4: CI + Distribution** - Pre-built static binaries on GitHub Releases with a single curl install command
 
 ## Phase Details
@@ -66,7 +66,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 03-02-PLAN.md — TUI shell: SIGTERM-aware ratatui init/restore in main.rs + App state machine + main menu (CORE-01)
   - [x] 03-03-PLAN.md — Rename flow: fuzzy-filterable author list + two-field rename form (RENAME-01, RENAME-02)
   - [x] 03-04-PLAN.md — Drop flow: fuzzy-filterable co-author list to Preview placeholder (DROP-01)
-  - [ ] 03-05-PLAN.md — Preview + warnings + execute + result: scan integration, Y/N confirm, success screen with force-push reminder (RENAME-05, DROP-04, SAFE-03, SAFE-04, SAFE-05, OUT-01)
+  - [x] 03-05-PLAN.md — Preview + warnings + execute + result: scan integration, Y/N confirm, success screen with force-push reminder (RENAME-05, DROP-04, SAFE-03, SAFE-04, SAFE-05, OUT-01)
 **Key constraints**:
 - `ratatui::init()` and a SIGTERM handler (calling `ratatui::restore()`) must be the first code written — before any app logic — to prevent terminal stuck in raw mode on panic or signal
 - Target author entry is a free-text two-field form (new name + new email), not a second list picker
@@ -96,5 +96,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation + Read Layer | 0/? | Not started | - |
 | 2. Rewrite Engine | 0/? | Not started | - |
-| 3. TUI + Integration | 4/5 | In Progress|  |
+| 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
 | 4. CI + Distribution | 0/? | Not started | - |
