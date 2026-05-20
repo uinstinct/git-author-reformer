@@ -41,13 +41,25 @@ fn test_enumerate_authors_same_name_different_emails_separate_entries() {
     );
     // All have count 1 — deduplicated by exact (name, email) pair
     for entry in &result {
-        assert_eq!(entry.commit_count, 1, "Each distinct (name, email) should have count 1");
+        assert_eq!(
+            entry.commit_count, 1,
+            "Each distinct (name, email) should have count 1"
+        );
     }
     // Verify the three distinct emails are all present
     let emails: Vec<&str> = result.iter().map(|e| e.email.as_str()).collect();
-    assert!(emails.contains(&"alice@example.com"), "Should contain fixture alice@example.com");
-    assert!(emails.contains(&"alice@old.com"), "Should contain alice@old.com");
-    assert!(emails.contains(&"alice@new.com"), "Should contain alice@new.com");
+    assert!(
+        emails.contains(&"alice@example.com"),
+        "Should contain fixture alice@example.com"
+    );
+    assert!(
+        emails.contains(&"alice@old.com"),
+        "Should contain alice@old.com"
+    );
+    assert!(
+        emails.contains(&"alice@new.com"),
+        "Should contain alice@new.com"
+    );
 }
 
 #[test]
@@ -112,7 +124,11 @@ fn test_enumerate_coauthors_malformed_trailer_skipped() {
     );
 
     let result = enumerate_coauthors(&repo).unwrap();
-    assert_eq!(result.len(), 1, "Only Dave should appear; malformed line is silently ignored");
+    assert_eq!(
+        result.len(),
+        1,
+        "Only Dave should appear; malformed line is silently ignored"
+    );
     assert_eq!(result[0].name, "Dave");
     assert_eq!(result[0].email, "dave@x.com");
     assert_eq!(result[0].commit_count, 1);

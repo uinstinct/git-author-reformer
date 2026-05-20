@@ -13,7 +13,10 @@ fn test_binary_exits_with_error_outside_git_repo() {
         .output()
         .unwrap();
 
-    assert!(!output.status.success(), "expected non-zero exit code outside a git repo");
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit code outside a git repo"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("Not inside a git repository"),
@@ -27,7 +30,8 @@ fn test_binary_blocks_when_stash_ref_exists() {
 
     // Create a synthetic refs/stash pointing at HEAD — simulates a stash entry
     let head_oid = repo.head().unwrap().target().unwrap();
-    repo.reference("refs/stash", head_oid, false, "stash log").unwrap();
+    repo.reference("refs/stash", head_oid, false, "stash log")
+        .unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_git-author-reformer"))
         .current_dir(repo.workdir().unwrap())
@@ -37,7 +41,10 @@ fn test_binary_blocks_when_stash_ref_exists() {
         .output()
         .unwrap();
 
-    assert!(!output.status.success(), "expected non-zero exit code with stash ref");
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit code with stash ref"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("Stash entries detected"),
@@ -64,7 +71,10 @@ fn test_binary_blocks_when_linked_worktree_exists() {
         .output()
         .unwrap();
 
-    assert!(!output.status.success(), "expected non-zero exit code with linked worktree");
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit code with linked worktree"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("Linked worktrees detected"),
@@ -84,5 +94,8 @@ fn test_binary_passes_preflight_on_clean_repo() {
         .output()
         .unwrap();
 
-    assert!(output.status.success(), "expected exit code 0 on clean repo");
+    assert!(
+        output.status.success(),
+        "expected exit code 0 on clean repo"
+    );
 }

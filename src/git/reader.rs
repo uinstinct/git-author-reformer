@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use git2::Sort;
+use std::collections::HashMap;
 
 pub fn enumerate_authors(
     repo: &git2::Repository,

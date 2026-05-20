@@ -10,7 +10,10 @@ use git_author_reformer::git::preflight::{check_stash, check_worktrees};
 fn test_check_stash_passes_on_clean_repo() {
     let (_dir, repo) = common::create_fixture_repo();
     let result = check_stash(&repo);
-    assert!(result.is_ok(), "clean repo should pass stash gate; got: {result:?}");
+    assert!(
+        result.is_ok(),
+        "clean repo should pass stash gate; got: {result:?}"
+    );
 }
 
 /// Stash detection: repo with refs/stash must be blocked (SAFE-01).
@@ -19,7 +22,8 @@ fn test_check_stash_passes_on_clean_repo() {
 fn test_check_stash_blocks_when_stash_ref_exists() {
     let (_dir, repo) = common::create_fixture_repo();
     let head_oid = repo.head().unwrap().peel_to_commit().unwrap().id();
-    repo.reference("refs/stash", head_oid, false, "test stash").unwrap();
+    repo.reference("refs/stash", head_oid, false, "test stash")
+        .unwrap();
 
     let result = check_stash(&repo);
     assert!(
