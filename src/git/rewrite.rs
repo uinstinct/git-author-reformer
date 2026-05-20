@@ -156,6 +156,7 @@ pub fn rewrite_author(
 }
 
 /// Builds new author and committer signatures for a commit being rewritten.
+
 ///
 /// Author is rewritten when it matches `old_name` + `old_email`.
 /// Committer is rewritten ONLY when it matches `old_name` + `old_email` (RENAME-03:
@@ -200,4 +201,86 @@ fn build_new_signatures(
     };
 
     Ok((new_author, new_committer))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::drop_coauthor_from_message;
+
+    #[test]
+    fn test_drop_coauthor_from_message_removes_single_match() {
+        let input = "feat: x\n\nCo-authored-by: Bob <bob@example.com>\n";
+        let result = drop_coauthor_from_message(input, "bob@example.com");
+        assert_eq!(
+            result,
+            "feat: x\n\n",
+            "trailer line must be removed; body and blank line preserved; trailing newline preserved"
+        );
+    }
+
+    #[test]
+    fn test_drop_coauthor_from_message_preserves_trailing_newline() {
+        // Input ending in \n: output must end in \n (Pitfall 6 — trailing newline pin).
+        let with_newline = "msg\n\nCo-authored-by: Bob <bob@example.com>\n";
+        let result = drop_coauthor_from_message(with_newline, "bob@example.com");
+        assert!(
+            result.ends_with('\n'),
+            "P6: output must end with newline when input ends with newline; got: {:?}",
+            result
+        );
+
+        // Input NOT ending in \n: output must NOT end in \n.
+        let without_newline = "msg\nCo-authored-by: Bob <bob@example.com>";
+        let result2 = drop_coauthor_from_message(without_newline, "bob@example.com");
+        assert!(
+            !result2.ends_with('\n'),
+            "P6: output must NOT end with newline when input does not; got: {:?}",
+            result2
+        );
+    }
+
+    #[test]
+    fn test_drop_coauthor_from_message_case_insensitive_email() {
+        let input = "msg\n\nCo-Authored-By: Bob <BOB@EXAMPLE.COM>\n";
+        let result = drop_coauthor_from_message(input, "bob@example.com");
+        assert_eq!(
+            result,
+            "msg\n\n",
+            "DROP-02: case-insensitive email match must remove BOB@EXAMPLE.COM when target is bob@example.com"
+        );
+    }
+
+    #[test]
+    fn test_drop_coauthor_from_message_removes_all_duplicates() {
+        let input = "msg\n\nCo-authored-by: Bob <bob@example.com>\nCo-authored-by: Bob <bob@example.com>\n";
+        let result = drop_coauthor_from_message(input, "bob@example.com");
+        assert_eq!(
+            result,
+            "msg\n\n",
+            "DROP-02: both duplicate trailer lines must be removed in one pass"
+        );
+    }
+
+    #[test]
+    fn test_drop_coauthor_from_message_preserves_non_matching_trailers() {
+        let input =
+            "msg\n\nCo-authored-by: Bob <bob@example.com>\nCo-authored-by: Carol <carol@example.com>\n";
+        let result = drop_coauthor_from_message(input, "bob@example.com");
+        assert_eq!(
+            result,
+            "msg\n\nCo-authored-by: Carol <carol@example.com>\n",
+            "DROP-03: non-matching trailer (Carol) must be preserved when Bob is the drop target"
+        );
+    }
+
+    #[test]
+    fn test_drop_coauthor_from_message_no_match_returns_input_unchanged() {
+        let input = "feat: x\n\nbody text\n";
+        let result = drop_coauthor_from_message(input, "anyone@example.com");
+        assert_eq!(
+            result,
+            input,
+            "DROP-03: when no trailer matches, output must be byte-identical to input"
+        );
+    }
 }
