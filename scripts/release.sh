@@ -123,9 +123,13 @@ fi
 
 rm -f Cargo.toml.bak
 
+# --- Regenerate Cargo.lock so cargo check --locked passes ---
+
+cargo update --workspace
+
 # --- Commit and tag ---
 
-git add Cargo.toml
+git add Cargo.toml Cargo.lock
 git commit -m "chore: release v$NEW_VERSION"
 
 COMMIT_SHORT="$(git rev-parse --short HEAD)"
