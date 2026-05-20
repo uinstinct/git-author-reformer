@@ -148,13 +148,11 @@ fn update_refs_and_head(
                     repo.tag(tag_name, &new_target_obj, &tagger, tag_msg, true)?;
                 }
             }
-            Some(git2::ObjectType::Commit) => {
+            Some(git2::ObjectType::Commit) if oid_map.contains_key(&ref_oid) => {
                 // Lightweight tag: ref points directly at a commit; update target.
-                if oid_map.contains_key(&ref_oid) {
-                    let new_oid = *oid_map.get(&ref_oid).unwrap();
-                    let mut lw_ref = repo.find_reference(&ref_name)?;
-                    lw_ref.set_target(new_oid, reflog_msg)?;
-                }
+                let new_oid = *oid_map.get(&ref_oid).unwrap();
+                let mut lw_ref = repo.find_reference(&ref_name)?;
+                lw_ref.set_target(new_oid, reflog_msg)?;
             }
             _ => {} // trees, blobs, other kinds — skip
         }

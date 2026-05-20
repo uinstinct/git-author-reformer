@@ -56,15 +56,11 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             selected,
         } => match key {
             KeyCode::Esc => app.screen = Screen::MainMenu { selected: 0 },
-            KeyCode::Down => {
-                if !matched.is_empty() {
-                    *selected = (*selected + 1) % matched.len();
-                }
+            KeyCode::Down if !matched.is_empty() => {
+                *selected = (*selected + 1) % matched.len();
             }
-            KeyCode::Up => {
-                if !matched.is_empty() {
-                    *selected = (*selected + matched.len() - 1) % matched.len();
-                }
+            KeyCode::Up if !matched.is_empty() => {
+                *selected = (*selected + matched.len() - 1) % matched.len();
             }
             KeyCode::Enter => {
                 if let Some(src) = matched.get(*selected).cloned() {
@@ -92,26 +88,24 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                 let toggled = draft.focused.clone().toggle();
                 draft.focused = toggled;
             }
-            KeyCode::Enter => {
-                if draft.is_complete() {
-                    // Clone source before the borrow ends so we can assign app.screen
-                    let source_clone = source.clone();
-                    let new_name = draft.new_name.trim().to_string();
-                    let new_email = draft.new_email.trim().to_string();
-                    let old_name = source_clone.name.clone();
-                    let old_email = source_clone.email.clone();
-                    // Drop the borrow of app.screen by dropping source/draft
-                    match crate::git::scan::scan_rename(&app.repo, &old_name, &old_email) {
-                        Ok(scan) => {
-                            let op = PendingOp::Rename {
-                                source: source_clone,
-                                new_name,
-                                new_email,
-                            };
-                            app.screen = Screen::Preview { op, scan };
-                        }
-                        Err(e) => app.screen = Screen::Err(e.to_string()),
+            KeyCode::Enter if draft.is_complete() => {
+                // Clone source before the borrow ends so we can assign app.screen
+                let source_clone = source.clone();
+                let new_name = draft.new_name.trim().to_string();
+                let new_email = draft.new_email.trim().to_string();
+                let old_name = source_clone.name.clone();
+                let old_email = source_clone.email.clone();
+                // Drop the borrow of app.screen by dropping source/draft
+                match crate::git::scan::scan_rename(&app.repo, &old_name, &old_email) {
+                    Ok(scan) => {
+                        let op = PendingOp::Rename {
+                            source: source_clone,
+                            new_name,
+                            new_email,
+                        };
+                        app.screen = Screen::Preview { op, scan };
                     }
+                    Err(e) => app.screen = Screen::Err(e.to_string()),
                 }
             }
             KeyCode::Backspace => match draft.focused {
@@ -169,15 +163,11 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             selected,
         } => match key {
             KeyCode::Esc => app.screen = Screen::MainMenu { selected: 0 },
-            KeyCode::Down => {
-                if !matched.is_empty() {
-                    *selected = (*selected + 1) % matched.len();
-                }
+            KeyCode::Down if !matched.is_empty() => {
+                *selected = (*selected + 1) % matched.len();
             }
-            KeyCode::Up => {
-                if !matched.is_empty() {
-                    *selected = (*selected + matched.len() - 1) % matched.len();
-                }
+            KeyCode::Up if !matched.is_empty() => {
+                *selected = (*selected + matched.len() - 1) % matched.len();
             }
             KeyCode::Enter => {
                 if let Some(target) = matched.get(*selected).cloned() {
