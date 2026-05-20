@@ -395,10 +395,7 @@ fn test_drop_coauthor_removes_all_occurrences_within_one_commit() {
 
     let rewritten = find_commit_containing(&repo, "feat: pair");
     let msg = rewritten.message_raw().unwrap_or("");
-    let count = msg
-        .to_ascii_lowercase()
-        .matches("co-authored-by:")
-        .count();
+    let count = msg.to_ascii_lowercase().matches("co-authored-by:").count();
     assert_eq!(
         count,
         0,
@@ -457,8 +454,7 @@ fn test_drop_coauthor_preserves_body_trailers_tree_timestamps_author_committer()
     let rewritten = find_commit_containing(&repo, "typo fix");
     let new_msg = rewritten.message_raw().unwrap_or("");
 
-    let expected_message =
-        original_message.replace("Co-authored-by: Bob <bob@example.com>\n", "");
+    let expected_message = original_message.replace("Co-authored-by: Bob <bob@example.com>\n", "");
     assert_eq!(
         new_msg,
         expected_message.as_str(),
