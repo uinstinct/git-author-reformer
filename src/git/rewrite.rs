@@ -1,3 +1,4 @@
+use crate::git::reader::{parse_coauthor_value, strip_coauthor_prefix};
 use git2::{Oid, Sort};
 use std::collections::HashMap;
 
@@ -83,9 +84,20 @@ pub fn rewrite_author(
         }
     }
 
-    // Section D: post-walk ref / tag / HEAD update pass.
-    // Only meaningful when oid_map is non-empty, but always runs.
+    // Section D: post-walk ref / tag / HEAD update pass (extracted as shared helper).
+    update_refs_and_head(repo, &oid_map)?;
 
+    Ok(count)
+}
+
+/// Shared post-walk ref/tag/HEAD update pass used by both rewrite_author and drop_coauthor.
+/// Updates local branch refs, recreates annotated tag objects (RENAME-04), updates
+/// lightweight tag refs, and handles detached HEAD (Pitfall 4).
+/// Returns Result<(), git2::Error>; callers convert to AppError via the ? operator.
+fn update_refs_and_head(
+    repo: &git2::Repository,
+    oid_map: &HashMap<Oid, Oid>,
+) -> Result<(), git2::Error> {
     // D.1 Branch refs — local branches only (BranchType::Local, Pitfall 5).
     for branch_result in repo.branches(Some(git2::BranchType::Local))? {
         let (branch, _branch_type) = branch_result?;
@@ -152,11 +164,122 @@ pub fn rewrite_author(
         }
     }
 
+    Ok(())
+}
+
+// Known v1 limitation: CRLF -> LF normalization when message body contains \r\n; Pitfall 8 documents the rationale.
+/// Removes all Co-authored-by lines whose email (case-insensitive) matches `target_email`.
+/// Preserves the trailing newline if the original message had one.
+/// Pure string -> string transform; reuses strip_coauthor_prefix and parse_coauthor_value.
+pub(crate) fn drop_coauthor_from_message(message: &str, target_email: &str) -> String {
+    // MUST capture before .lines() — str::lines strips a single trailing \n (Pitfall 6).
+    let had_trailing_newline = message.ends_with('\n');
+
+    let kept: Vec<&str> = message
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            if let Some(rest) = strip_coauthor_prefix(trimmed) {
+                if let Some((_name, email)) = parse_coauthor_value(rest.trim()) {
+                    // Drop the line only when email matches case-insensitively (DROP-02).
+                    return !email.eq_ignore_ascii_case(target_email);
+                }
+                // Malformed Co-authored-by prefix (value failed to parse) — keep it.
+                true
+            } else {
+                // Not a Co-authored-by line — keep it.
+                true
+            }
+        })
+        .collect();
+
+    let mut out = kept.join("\n");
+    if had_trailing_newline {
+        out.push('\n');
+    }
+    out
+}
+
+/// Removes all Co-authored-by trailers matching `target_email` (case-insensitive) from every
+/// commit reachable from local branches and tags. Updates all refs and detached HEAD after
+/// the walk. Returns the count of new commit objects written.
+///
+/// Uses Option A: shares the update_refs_and_head helper with rewrite_author.
+pub fn drop_coauthor(
+    repo: &git2::Repository,
+    target_email: &str,
+) -> Result<usize, crate::error::AppError> {
+    let mut revwalk = repo.revwalk()?;
+    revwalk.push_glob("refs/heads/*")?;
+    revwalk.push_glob("refs/tags/*")?;
+    revwalk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE)?;
+
+    let mut oid_map: HashMap<Oid, Oid> = HashMap::new();
+    let mut count: usize = 0;
+
+    for oid_result in revwalk {
+        let old_oid = oid_result?;
+        let commit = repo.find_commit(old_oid)?;
+
+        let raw_msg = commit.message_raw().unwrap_or("");
+        let new_msg = drop_coauthor_from_message(raw_msg, target_email);
+        let message_changed = new_msg != raw_msg;
+
+        let any_parent_remapped =
+            (0..commit.parent_count()).any(|i| oid_map.contains_key(&commit.parent_id(i).unwrap()));
+
+        let needs_rewrite = message_changed || any_parent_remapped;
+
+        if needs_rewrite {
+            // Collect new parent OIDs in INDEX ORDER — Vec preserves merge parent order (critical).
+            let new_parent_oids: Vec<Oid> = (0..commit.parent_count())
+                .map(|i| {
+                    let p = commit.parent_id(i).unwrap();
+                    *oid_map.get(&p).unwrap_or(&p)
+                })
+                .collect();
+
+            // Ownership dance (git2-rs #140): Vec<Oid> → Vec<Commit> → Vec<&Commit>
+            let parent_commits: Vec<git2::Commit> = new_parent_oids
+                .iter()
+                .map(|oid| repo.find_commit(*oid))
+                .collect::<Result<Vec<_>, _>>()?;
+            let parent_refs: Vec<&git2::Commit> = parent_commits.iter().collect();
+
+            // Author and committer are NOT changed by drop_coauthor — preserve byte-for-byte (DROP-03).
+            let orig_author = commit.author();
+            let orig_committer = commit.committer();
+            let new_author = git2::Signature::new(
+                orig_author.name().unwrap_or(""),
+                orig_author.email().unwrap_or(""),
+                &orig_author.when(),
+            )?;
+            let new_committer = git2::Signature::new(
+                orig_committer.name().unwrap_or(""),
+                orig_committer.email().unwrap_or(""),
+                &orig_committer.when(),
+            )?;
+
+            let new_oid = repo.commit(
+                None,
+                &new_author,
+                &new_committer,
+                &new_msg,
+                &commit.tree()?,
+                &parent_refs,
+            )?;
+
+            oid_map.insert(old_oid, new_oid);
+            count += 1;
+        }
+    }
+
+    update_refs_and_head(repo, &oid_map)?;
+
     Ok(count)
 }
 
 /// Builds new author and committer signatures for a commit being rewritten.
-
 ///
 /// Author is rewritten when it matches `old_name` + `old_email`.
 /// Committer is rewritten ONLY when it matches `old_name` + `old_email` (RENAME-03:
@@ -252,11 +375,11 @@ mod tests {
 
     #[test]
     fn test_drop_coauthor_from_message_removes_all_duplicates() {
-        let input = "msg\n\nCo-authored-by: Bob <bob@example.com>\nCo-authored-by: Bob <bob@example.com>\n";
+        let input =
+            "msg\n\nCo-authored-by: Bob <bob@example.com>\nCo-authored-by: Bob <bob@example.com>\n";
         let result = drop_coauthor_from_message(input, "bob@example.com");
         assert_eq!(
-            result,
-            "msg\n\n",
+            result, "msg\n\n",
             "DROP-02: both duplicate trailer lines must be removed in one pass"
         );
     }
@@ -267,8 +390,7 @@ mod tests {
             "msg\n\nCo-authored-by: Bob <bob@example.com>\nCo-authored-by: Carol <carol@example.com>\n";
         let result = drop_coauthor_from_message(input, "bob@example.com");
         assert_eq!(
-            result,
-            "msg\n\nCo-authored-by: Carol <carol@example.com>\n",
+            result, "msg\n\nCo-authored-by: Carol <carol@example.com>\n",
             "DROP-03: non-matching trailer (Carol) must be preserved when Bob is the drop target"
         );
     }
@@ -278,8 +400,7 @@ mod tests {
         let input = "feat: x\n\nbody text\n";
         let result = drop_coauthor_from_message(input, "anyone@example.com");
         assert_eq!(
-            result,
-            input,
+            result, input,
             "DROP-03: when no trailer matches, output must be byte-identical to input"
         );
     }
