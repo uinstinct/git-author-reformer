@@ -206,4 +206,40 @@ mod tests {
         assert_eq!(matched.len(), 1);
         assert_eq!(matched[0].name, "Alice");
     }
+
+    fn make_coauthor(name: &str, email: &str) -> crate::git::types::CoAuthorEntry {
+        crate::git::types::CoAuthorEntry {
+            name: name.to_string(),
+            email: email.to_string(),
+            commit_count: 1,
+        }
+    }
+
+    #[test]
+    fn test_build_coauthor_nucleo_injects_all_items() {
+        // DROP-01: build_coauthor_nucleo injects all items; after tick(10) with empty pattern, all 3 appear.
+        let items = vec![
+            make_coauthor("Alice", "alice@example.com"),
+            make_coauthor("Bob", "bob@example.com"),
+            make_coauthor("Carol", "carol@example.com"),
+        ];
+        let mut nucleo = build_coauthor_nucleo(&items);
+        nucleo.tick(10);
+        let snap = nucleo.snapshot();
+        assert_eq!(snap.matched_item_count(), 3);
+    }
+
+    #[test]
+    fn test_apply_coauthor_filter_narrows_results() {
+        // DROP-01: apply_coauthor_filter with "ali" returns only Alice.
+        let items = vec![
+            make_coauthor("Alice", "alice@example.com"),
+            make_coauthor("Bob", "bob@example.com"),
+            make_coauthor("Carol", "carol@example.com"),
+        ];
+        let mut nucleo = build_coauthor_nucleo(&items);
+        let matched = apply_coauthor_filter(&mut nucleo, "ali");
+        assert_eq!(matched.len(), 1);
+        assert_eq!(matched[0].name, "Alice");
+    }
 }
