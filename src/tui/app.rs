@@ -37,6 +37,7 @@ pub enum Screen {
     Success {
         rewritten: usize,
         remote_name: Option<String>,
+        copied: bool,
     },
     Err(String),
 }
@@ -320,17 +321,17 @@ mod tests {
     #[test]
     fn test_screen_success_remote_name_optional() {
         // Plan 03-05 Task 1: Screen::Success with rewritten count + optional remote_name.
-        let s1 = Screen::Success { rewritten: 3, remote_name: None };
-        let s2 = Screen::Success { rewritten: 7, remote_name: Some("origin".to_string()) };
+        let s1 = Screen::Success { rewritten: 3, remote_name: None, copied: false };
+        let s2 = Screen::Success { rewritten: 7, remote_name: Some("origin".to_string()), copied: false };
         match s1 {
-            Screen::Success { rewritten, remote_name } => {
+            Screen::Success { rewritten, remote_name, .. } => {
                 assert_eq!(rewritten, 3);
                 assert!(remote_name.is_none());
             }
             _ => panic!("expected Success"),
         }
         match s2 {
-            Screen::Success { rewritten, remote_name } => {
+            Screen::Success { rewritten, remote_name, .. } => {
                 assert_eq!(rewritten, 7);
                 assert_eq!(remote_name.as_deref(), Some("origin"));
             }
