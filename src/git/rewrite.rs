@@ -139,7 +139,9 @@ fn update_refs_and_head(
                     let tagger = tag.tagger().unwrap_or_else(|| {
                         git2::Signature::now("unknown", "unknown@unknown").unwrap()
                     });
-                    let tag_name = tag.name().unwrap_or("");
+                    // Propagate error on non-UTF-8 tag name — creating a tag with an
+                    // empty name would silently corrupt the tag object (WR-06).
+                    let tag_name = tag.name()?;
                     // tag.message() returns Result<Option<&str>> — handle both layers (Pitfall 3).
                     let tag_msg_opt: Option<&str> = tag.message().unwrap_or(None);
                     let tag_msg = tag_msg_opt.unwrap_or("");
