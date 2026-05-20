@@ -87,6 +87,7 @@ Four new dependencies added (supply-chain-verified in Task 1):
 | Task 3 (RED) | `8b5341e` | test(03-01): add failing scan tests for cascade equivalence and warnings |
 | Task 4 (GREEN) | `a2334c1` | feat(03-01): implement git::scan with RewritePreview cascade tracking |
 | Task 5 (REFACTOR) | `3d50814` | refactor(03-01): apply cargo fmt to scan.rs and scan_test.rs |
+| Post-plan fix | `95906d6` | fix(03-01): make signed-commit test actually exercise cascade filter |
 
 ## Deviations from Plan
 
@@ -105,6 +106,13 @@ Four new dependencies added (supply-chain-verified in Task 1):
 - **Fix:** Removed the import. Tests still compile because the struct is used indirectly via returned values.
 - **Files modified:** `tests/scan_test.rs`
 - **Commit:** `a2334c1`
+
+**3. [Rule 1 - Bug] SAFE-03 test verified cascade-only filtering vacuously**
+- **Found during:** Post-refactor review (CLAUDE.md Rule 8: tests must verify intent)
+- **Issue:** `test_scan_rename_counts_signed_commits_in_cascade_only` created Bob's signed commit but never added it to any branch ref. Revwalk never visited Bob → assertion `signed_commit_count == 1` passed without proving that `count_signed_commits` filters by the cascade set. If `count_signed_commits` scanned the entire repo, the test would still pass because Bob is unreachable.
+- **Fix:** Made Bob an orphan commit (no parents, not by Alice) on `refs/heads/bob-branch` — revwalk now visits Bob but he is excluded from `would_remap` (not Alice, no cascade parents). Assertion now fails if cascade filtering is removed.
+- **Files modified:** `tests/scan_test.rs`
+- **Commit:** `95906d6`
 
 ### Environment Issue (pre-existing, not a code deviation)
 
@@ -127,3 +135,5 @@ The prompt's success-criteria summary listed "Task 5: tui skeleton" but the PLAN
 None — no new network endpoints, auth paths, or schema changes at trust boundaries. The `scan_rename`/`scan_drop` functions are read-only (no commits written). The four new deps were verified at the supply-chain checkpoint (Task 1, approved before this execution resumed).
 
 ## Self-Check: PASSED
+
+Post-plan fix `95906d6` applied and verified: 44/44 tests pass; SAFE-03 test now exercises cascade filter correctly.
