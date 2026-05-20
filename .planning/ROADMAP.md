@@ -65,7 +65,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 03-01-PLAN.md — TDD: git::scan module (RewritePreview, scan_rename, scan_drop) + Cargo deps + empty tui module skeleton
   - [x] 03-02-PLAN.md — TUI shell: SIGTERM-aware ratatui init/restore in main.rs + App state machine + main menu (CORE-01)
   - [x] 03-03-PLAN.md — Rename flow: fuzzy-filterable author list + two-field rename form (RENAME-01, RENAME-02)
-  - [ ] 03-04-PLAN.md — Drop flow: fuzzy-filterable co-author list to Preview placeholder (DROP-01)
+  - [x] 03-04-PLAN.md — Drop flow: fuzzy-filterable co-author list to Preview placeholder (DROP-01)
   - [ ] 03-05-PLAN.md — Preview + warnings + execute + result: scan integration, Y/N confirm, success screen with force-push reminder (RENAME-05, DROP-04, SAFE-03, SAFE-04, SAFE-05, OUT-01)
 **Key constraints**:
 - `ratatui::init()` and a SIGTERM handler (calling `ratatui::restore()`) must be the first code written — before any app logic — to prevent terminal stuck in raw mode on panic or signal
@@ -96,5 +96,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation + Read Layer | 0/? | Not started | - |
 | 2. Rewrite Engine | 0/? | Not started | - |
-| 3. TUI + Integration | 3/5 | In Progress|  |
+| 3. TUI + Integration | 4/5 | In Progress|  |
 | 4. CI + Distribution | 0/? | Not started | - |
