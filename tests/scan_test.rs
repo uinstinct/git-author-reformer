@@ -138,28 +138,27 @@ fn test_scan_rename_counts_signed_commits_in_cascade_only() {
     repo.reference("refs/heads/master", signed_oid, true, "update")
         .unwrap();
 
-    // Create a signed commit by Bob (NOT in the cascade set for Alice scan).
+    // Create an orphan signed commit by Bob — no parents, not by Alice.
+    // This commit IS reachable (on refs/heads/bob-branch) so revwalk visits it,
+    // but it is NOT in Alice's cascade set because:
+    //   (a) Bob is not Alice → identity_matches = false
+    //   (b) Bob has no parents → any_parent_remapped = false
+    // If count_signed_commits stopped filtering by would_remap, it would count 2.
     let bob_sig = Signature::new("Bob", "bob@example.com", &Time::new(2_000_001, 0)).unwrap();
-    let alice_commit = repo.find_commit(signed_oid).unwrap();
-    let alice_tree = alice_commit.tree().unwrap();
+    let bob_tree_oid = {
+        let mut idx = repo.index().unwrap();
+        idx.write_tree().unwrap()
+    };
+    let bob_tree = repo.find_tree(bob_tree_oid).unwrap();
     let bob_buf = repo
-        .commit_create_buffer(
-            &bob_sig,
-            &bob_sig,
-            "bob-signed-notcascade",
-            &alice_tree,
-            &[&alice_commit],
-        )
+        .commit_create_buffer(&bob_sig, &bob_sig, "bob-orphan-signed", &bob_tree, &[])
         .unwrap();
     let bob_content = std::str::from_utf8(&bob_buf).unwrap();
     let bob_signed_oid = repo
         .commit_signed(bob_content, fake_gpgsig, Some("gpgsig"))
         .unwrap();
-
-    // Put Bob's signed commit on a separate branch (not in Alice's scan).
-    // Bob IS a cascade descendant of Alice here, so we need him NOT to be in cascade.
-    // Instead, create an independent branch for Bob's signed commit.
-    let _ = bob_signed_oid; // suppress unused warning — Bob is reachable via tags only
+    repo.reference("refs/heads/bob-branch", bob_signed_oid, false, "bob orphan")
+        .unwrap();
 
     // Verify: Alice's signed commit has gpgsig header.
     let alice_signed_commit = repo.find_commit(signed_oid).unwrap();
