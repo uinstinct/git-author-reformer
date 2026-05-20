@@ -33,9 +33,8 @@ fi
 CURRENT_VERSION="$(awk '
   /^\[/ { section = substr($0, 2, index($0, "]") - 2) }
   section == "package" && /^version[[:space:]]*=[[:space:]]*"[^"]+"/ {
-    match($0, /"([^"]+)"/, arr)
-    print arr[1]
-    exit
+    line = $0; sub(/^[^"]*"/, "", line); sub(/".*$/, "", line)
+    print line; exit
   }
 ' Cargo.toml)"
 
@@ -102,9 +101,8 @@ awk -v new_ver="$NEW_VERSION" '
 WRITTEN_VERSION="$(awk '
   /^\[/ { section = substr($0, 2, index($0, "]") - 2) }
   section == "package" && /^version[[:space:]]*=[[:space:]]*"[^"]+"/ {
-    match($0, /"([^"]+)"/, arr)
-    print arr[1]
-    exit
+    line = $0; sub(/^[^"]*"/, "", line); sub(/".*$/, "", line)
+    print line; exit
   }
 ' Cargo.toml)"
 
