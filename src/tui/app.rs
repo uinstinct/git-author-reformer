@@ -1,4 +1,4 @@
-use crate::git::types::AuthorIdentity;
+use crate::git::types::{AuthorIdentity, CoAuthorEntry};
 use git2::Repository;
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::{Config, Nucleo};
@@ -26,6 +26,13 @@ pub enum Screen {
     },
     /// Placeholder destination for RenameForm Enter — Plan 03-05 adds scan field.
     Preview(PendingOp),
+    CoAuthorList {
+        items: Vec<CoAuthorEntry>,
+        filter: String,
+        matched: Vec<CoAuthorEntry>,
+        nucleo: Nucleo<CoAuthorEntry>,
+        selected: usize,
+    },
 }
 
 pub struct RenameDraft {
@@ -72,7 +79,9 @@ pub enum PendingOp {
         new_name: String,
         new_email: String,
     },
-    // Drop variant added in Plan 03-04
+    Drop {
+        target: CoAuthorEntry,
+    },
 }
 
 pub enum MenuChoice {
@@ -125,6 +134,28 @@ pub fn build_author_nucleo(items: &[AuthorIdentity]) -> Nucleo<AuthorIdentity> {
 }
 
 pub fn apply_filter(nucleo: &mut Nucleo<AuthorIdentity>, query: &str) -> Vec<AuthorIdentity> {
+    nucleo
+        .pattern
+        .reparse(0, query, CaseMatching::Ignore, Normalization::Smart, false);
+    nucleo.tick(10);
+    let snap = nucleo.snapshot();
+    snap.matched_items(..).map(|m| m.data.clone()).collect()
+}
+
+pub fn build_coauthor_nucleo(items: &[CoAuthorEntry]) -> Nucleo<CoAuthorEntry> {
+    let nucleo = Nucleo::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+    let injector = nucleo.injector();
+    for item in items {
+        let display = format!("{} <{}>", item.name, item.email);
+        let item = item.clone();
+        injector.push(item, move |_, cols| {
+            cols[0] = display.clone().into();
+        });
+    }
+    nucleo
+}
+
+pub fn apply_coauthor_filter(nucleo: &mut Nucleo<CoAuthorEntry>, query: &str) -> Vec<CoAuthorEntry> {
     nucleo
         .pattern
         .reparse(0, query, CaseMatching::Ignore, Normalization::Smart, false);
