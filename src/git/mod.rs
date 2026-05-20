@@ -1,5 +1,6 @@
 pub mod preflight;
 pub mod reader;
+pub mod rewrite;
 pub mod types;
 
 pub fn open_repo() -> Result<git2::Repository, crate::error::AppError> {
