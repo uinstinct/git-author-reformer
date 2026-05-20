@@ -16,6 +16,8 @@ pub fn render(frame: &mut Frame, app: &App) {
             render_rename_form(frame, frame.area(), source, draft)
         }
         Screen::Preview(op) => render_preview_placeholder(frame, frame.area(), op),
+        // Stub: full implementation in Task 3 (Plan 03-04)
+        Screen::CoAuthorList { .. } => {}
     }
 }
 

@@ -115,6 +115,8 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             KeyCode::Esc | KeyCode::Char('q') => app.screen = Screen::MainMenu { selected: 0 },
             _ => {}
         },
+        // Stub: full implementation in Task 2 (Plan 03-04)
+        Screen::CoAuthorList { .. } => {}
     }
 }
 
