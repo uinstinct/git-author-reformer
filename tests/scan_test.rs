@@ -30,9 +30,14 @@ fn test_scan_rename_count_matches_rewrite_author() {
 
     // Fixture 2: identical setup — rewrite (mutates repo)
     let (_dir2, repo2) = build_alice_cascade_fixture();
-    let rewrite_count =
-        rewrite_author(&repo2, "Alice", "alice@example.com", "Alice New", "new@example.com")
-            .unwrap();
+    let rewrite_count = rewrite_author(
+        &repo2,
+        "Alice",
+        "alice@example.com",
+        "Alice New",
+        "new@example.com",
+    )
+    .unwrap();
 
     assert_eq!(
         scan_count,
@@ -60,13 +65,11 @@ fn test_scan_rename_zero_when_no_match() {
     let (_dir, repo) = common::create_fixture_repo();
     let preview = scan_rename(&repo, "Nobody", "nobody@example.com").unwrap();
     assert_eq!(
-        preview.affected_count,
-        0,
+        preview.affected_count, 0,
         "RENAME-05: scanning for an identity with no commits must return affected_count == 0"
     );
     assert_eq!(
-        preview.signed_commit_count,
-        0,
+        preview.signed_commit_count, 0,
         "RENAME-05: scanning for an identity with no commits must return signed_commit_count == 0"
     );
     assert!(
@@ -140,7 +143,13 @@ fn test_scan_rename_counts_signed_commits_in_cascade_only() {
     let alice_commit = repo.find_commit(signed_oid).unwrap();
     let alice_tree = alice_commit.tree().unwrap();
     let bob_buf = repo
-        .commit_create_buffer(&bob_sig, &bob_sig, "bob-signed-notcascade", &alice_tree, &[&alice_commit])
+        .commit_create_buffer(
+            &bob_sig,
+            &bob_sig,
+            "bob-signed-notcascade",
+            &alice_tree,
+            &[&alice_commit],
+        )
         .unwrap();
     let bob_content = std::str::from_utf8(&bob_buf).unwrap();
     let bob_signed_oid = repo
@@ -183,8 +192,13 @@ fn test_scan_rename_lists_annotated_tags_pointing_at_cascade() {
     common::create_annotated_tag(&repo, "v1.0", &alice_commit, "release v1.0");
 
     // Add a lightweight tag pointing at Alice's commit (should NOT appear in results).
-    repo.reference("refs/tags/lightweight-tag", alice_commit.id(), false, "lw tag")
-        .unwrap();
+    repo.reference(
+        "refs/tags/lightweight-tag",
+        alice_commit.id(),
+        false,
+        "lw tag",
+    )
+    .unwrap();
 
     let preview = scan_rename(&repo, "Alice", "alice@example.com").unwrap();
 
@@ -227,8 +241,7 @@ fn test_scan_drop_detects_notes_ref_when_present() {
         .unwrap()
         .parent_id(0)
         .unwrap();
-    let note_sig =
-        Signature::new("Tester", "test@example.com", &Time::new(3_000_000, 0)).unwrap();
+    let note_sig = Signature::new("Tester", "test@example.com", &Time::new(3_000_000, 0)).unwrap();
     repo.note(&note_sig, &note_sig, None, commit_oid, "note body", false)
         .unwrap();
 
@@ -299,8 +312,7 @@ fn test_scan_rename_none_when_no_remote() {
     // Fresh fixture repo has no remotes.
     let preview = scan_rename(&repo, "Alice", "alice@example.com").unwrap();
     assert_eq!(
-        preview.remote_name,
-        None,
+        preview.remote_name, None,
         "OUT-01: remote_name must be None when no remotes are configured. got: {:?}",
         preview.remote_name
     );
