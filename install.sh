@@ -68,21 +68,16 @@ BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
 BINARY_NAME="git-author-reformer-${PLATFORM}"
 DEST="${PWD}/git-author-reformer"
 
-if [ ! -x "${DEST}" ]; then
-  TMPDIR_WORK="$(mktemp -d)"
-  trap 'rm -rf "${TMPDIR_WORK}"' EXIT
+TMPDIR_WORK="$(mktemp -d)"
+trap 'rm -rf "${TMPDIR_WORK}"' EXIT
 
-  printf 'Downloading %s %s...\n' "${BINARY_NAME}" "${VERSION}" >&2
-  curl -fsSL "${BASE_URL}/${BINARY_NAME}" -o "${TMPDIR_WORK}/git-author-reformer"
-  curl -fsSL "${BASE_URL}/${BINARY_NAME}.sha256" -o "${TMPDIR_WORK}/git-author-reformer.sha256"
+printf 'Downloading %s %s...\n' "${BINARY_NAME}" "${VERSION}" >&2
+curl -fsSL "${BASE_URL}/${BINARY_NAME}" -o "${TMPDIR_WORK}/git-author-reformer"
+curl -fsSL "${BASE_URL}/${BINARY_NAME}.sha256" -o "${TMPDIR_WORK}/git-author-reformer.sha256"
 
-  verify_checksum "${TMPDIR_WORK}/git-author-reformer" "${TMPDIR_WORK}/git-author-reformer.sha256"
+verify_checksum "${TMPDIR_WORK}/git-author-reformer" "${TMPDIR_WORK}/git-author-reformer.sha256"
 
-  mv "${TMPDIR_WORK}/git-author-reformer" "${DEST}"
-  chmod +x "${DEST}"
-  printf 'Checksum verified. Binary saved as ./git-author-reformer\n' >&2
-  printf 'Run with: ./git-author-reformer\n' >&2
-else
-  printf 'Using existing ./git-author-reformer\n' >&2
-  printf 'Run with: ./git-author-reformer\n' >&2
-fi
+mv "${TMPDIR_WORK}/git-author-reformer" "${DEST}"
+chmod +x "${DEST}"
+printf 'Checksum verified. Binary saved as ./git-author-reformer\n' >&2
+printf 'Run with: ./git-author-reformer\n' >&2
