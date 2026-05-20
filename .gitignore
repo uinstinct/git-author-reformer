@@ -21,3 +21,6 @@ target
 #.idea/
 
 .claude
+
+# downloaded binary
+git-author-reformer

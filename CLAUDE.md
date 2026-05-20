@@ -82,6 +82,11 @@ If unsure why existing code is structured a certain way, ask.
 Tests must encode WHY behavior matters, not just WHAT it does.
 A test that can't fail when business logic changes is wrong.
 
+## Rule 9 - Cleanup unused git branches and worktrees
+
+Remove all git branches and worktrees which are not in use anymore after your work with them is complete.
+
+
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
