@@ -13,6 +13,7 @@ pub fn create_fixture_repo() -> (TempDir, Repository) {
     let tree = repo.find_tree(tree_oid).unwrap();
     repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
         .unwrap();
+    drop(tree);
 
     (dir, repo)
 }
