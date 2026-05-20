@@ -12,7 +12,7 @@ Run directly without installing:
 curl -fsSL https://raw.githubusercontent.com/uinstinct/git-author-reformer/main/install.sh | sh
 ```
 
-The script detects your platform, downloads the matching binary, verifies its SHA256 checksum, runs the tool, then cleans up. Nothing is left on disk.
+The script detects your platform, downloads the matching binary, verifies its SHA256 checksum, and caches it at `~/.cache/git-author-reformer/`. Subsequent runs with the same version skip the download entirely.
 
 To pin a specific version:
 

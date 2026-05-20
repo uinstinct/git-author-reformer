@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
-# install.sh — One-shot: detect platform, download binary from GitHub Releases,
-# verify SHA256 checksum, execute with user args, clean up temp dir on exit.
-# The binary is NOT installed permanently — it runs once and is deleted.
+# install.sh — Detect platform, download binary from GitHub Releases,
+# verify SHA256 checksum, cache binary locally, and run.
+# The binary is cached at ~/.cache/git-author-reformer/ and reused on
+# subsequent runs of the same version — no re-download needed.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/uinstinct/git-author-reformer/main/install.sh | sh
@@ -65,18 +66,26 @@ fi
 
 BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
 BINARY_NAME="git-author-reformer-${PLATFORM}"
-TMPDIR_WORK="$(mktemp -d)"
-trap 'rm -rf "${TMPDIR_WORK}"' EXIT
 
-printf 'Downloading %s %s...\n' "${BINARY_NAME}" "${VERSION}" >&2
-curl -fsSL "${BASE_URL}/${BINARY_NAME}" -o "${TMPDIR_WORK}/git-author-reformer"
-curl -fsSL "${BASE_URL}/${BINARY_NAME}.sha256" -o "${TMPDIR_WORK}/git-author-reformer.sha256"
+CACHE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/git-author-reformer"
+CACHED_BIN="${CACHE_DIR}/git-author-reformer-${VERSION}-${PLATFORM}"
 
-verify_checksum "${TMPDIR_WORK}/git-author-reformer" "${TMPDIR_WORK}/git-author-reformer.sha256"
+if [ ! -x "${CACHED_BIN}" ]; then
+  TMPDIR_WORK="$(mktemp -d)"
+  trap 'rm -rf "${TMPDIR_WORK}"' EXIT
 
-chmod +x "${TMPDIR_WORK}/git-author-reformer"
-printf 'Checksum verified. Running git-author-reformer...\n' >&2
-# Run as a foreground child, NOT exec. The shell process remains alive after the
-# binary exits so the EXIT trap fires and TMPDIR_WORK is removed. Using exec would
-# replace the shell process and the trap would never fire, leaking the temp directory.
-"${TMPDIR_WORK}/git-author-reformer" "$@"
+  printf 'Downloading %s %s...\n' "${BINARY_NAME}" "${VERSION}" >&2
+  curl -fsSL "${BASE_URL}/${BINARY_NAME}" -o "${TMPDIR_WORK}/git-author-reformer"
+  curl -fsSL "${BASE_URL}/${BINARY_NAME}.sha256" -o "${TMPDIR_WORK}/git-author-reformer.sha256"
+
+  verify_checksum "${TMPDIR_WORK}/git-author-reformer" "${TMPDIR_WORK}/git-author-reformer.sha256"
+
+  mkdir -p "${CACHE_DIR}"
+  mv "${TMPDIR_WORK}/git-author-reformer" "${CACHED_BIN}"
+  chmod +x "${CACHED_BIN}"
+  printf 'Checksum verified. Binary cached at %s\n' "${CACHED_BIN}" >&2
+else
+  printf 'Using cached %s %s\n' "${BINARY_NAME}" "${VERSION}" >&2
+fi
+
+"${CACHED_BIN}" "$@"
