@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # install.sh — Detect platform, download binary from GitHub Releases,
-# verify SHA256 checksum, save to the current directory, and run.
+# verify SHA256 checksum, and save to the current directory.
 # The binary is saved as ./git-author-reformer in the directory where the
 # curl command was run. Re-running the script reuses the existing binary.
 #
@@ -81,8 +81,8 @@ if [ ! -x "${DEST}" ]; then
   mv "${TMPDIR_WORK}/git-author-reformer" "${DEST}"
   chmod +x "${DEST}"
   printf 'Checksum verified. Binary saved as ./git-author-reformer\n' >&2
+  printf 'Run with: ./git-author-reformer\n' >&2
 else
   printf 'Using existing ./git-author-reformer\n' >&2
+  printf 'Run with: ./git-author-reformer\n' >&2
 fi
-
-"${DEST}" "$@"
