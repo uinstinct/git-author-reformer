@@ -1,4 +1,4 @@
-use crate::git::types::AuthorIdentity;
+use crate::git::types::{AuthorIdentity, CoAuthorEntry};
 use crate::tui::app::{App, FormField, MenuChoice, PendingOp, RenameDraft, Screen};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -16,8 +16,9 @@ pub fn render(frame: &mut Frame, app: &App) {
             render_rename_form(frame, frame.area(), source, draft)
         }
         Screen::Preview(op) => render_preview_placeholder(frame, frame.area(), op),
-        // Stub: full implementation in Task 3 (Plan 03-04)
-        Screen::CoAuthorList { .. } => {}
+        Screen::CoAuthorList { filter, matched, selected, .. } => {
+            render_coauthor_list(frame, frame.area(), filter, matched, *selected)
+        }
     }
 }
 
@@ -175,12 +176,71 @@ fn render_rename_form(
     );
 }
 
+fn render_coauthor_list(
+    frame: &mut Frame,
+    area: Rect,
+    filter: &str,
+    matched: &[CoAuthorEntry],
+    selected: usize,
+) {
+    let [filter_row, body, footer] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+    ])
+    .areas(area);
+
+    // Filter input row — cursor positioned at end of text
+    let filter_text = format!("/ {}", filter);
+    frame.render_widget(
+        Paragraph::new(filter_text.as_str()).block(Block::bordered().title("Filter")),
+        filter_row,
+    );
+    // Cursor: +1 for border, +2 for "/ " prefix, + filter length
+    let cursor_x = filter_row.x + 1 + 2 + filter.chars().count() as u16;
+    let cursor_y = filter_row.y + 1;
+    frame.set_cursor_position((cursor_x, cursor_y));
+
+    // Co-authors list
+    let items: Vec<ListItem> = matched
+        .iter()
+        .map(|item| {
+            ListItem::new(format!(
+                "{:>4}  {} <{}>",
+                item.commit_count, item.name, item.email
+            ))
+        })
+        .collect();
+    let list = List::new(items)
+        .block(
+            Block::bordered()
+                .title(format!("Co-authors ({} match)", matched.len())),
+        )
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .highlight_symbol("> ");
+    let mut state = ListState::default();
+    state.select(if matched.is_empty() { None } else { Some(selected) });
+    frame.render_stateful_widget(list, body, &mut state);
+
+    frame.render_widget(
+        Paragraph::new("type: filter   \u{2191}/\u{2193}: move   Enter: select   Esc: back"),
+        footer,
+    );
+}
+
 fn render_preview_placeholder(frame: &mut Frame, area: Rect, op: &PendingOp) {
     // Plan 03-05 REPLACES this body with the real warnings + confirmation render.
+    let summary = match op {
+        PendingOp::Rename { source, new_name, new_email } => {
+            format!("RENAME: {} <{}> \u{2192} {} <{}>", source.name, source.email, new_name, new_email)
+        }
+        PendingOp::Drop { target } => {
+            format!("DROP co-author: {} <{}>", target.name, target.email)
+        }
+    };
     frame.render_widget(
         Paragraph::new(format!(
-            "Preview placeholder — Plan 03-05 will render scan results for {:?}",
-            op
+            "Preview placeholder \u{2014} Plan 03-05 will scan and render warnings.\n\n{summary}\n\nEsc: cancel"
         ))
         .block(Block::bordered().title("Preview (WIP)")),
         area,
