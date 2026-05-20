@@ -223,7 +223,11 @@ pub fn drop_coauthor(
 
         let raw_msg = commit.message_raw().unwrap_or("");
         let new_msg = drop_coauthor_from_message(raw_msg, target_email);
-        let message_changed = new_msg != raw_msg;
+        // Normalize CRLF before comparing to avoid false-positive rewrites on CRLF commits.
+        // drop_coauthor_from_message normalizes \r\n -> \n; without this, CRLF commits
+        // would always compare unequal even when no co-author was dropped (WR-01).
+        let raw_msg_normalized = raw_msg.replace("\r\n", "\n");
+        let message_changed = new_msg != raw_msg_normalized;
 
         let any_parent_remapped =
             (0..commit.parent_count()).any(|i| oid_map.contains_key(&commit.parent_id(i).unwrap()));
