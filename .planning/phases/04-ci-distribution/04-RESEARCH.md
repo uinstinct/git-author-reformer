@@ -12,7 +12,7 @@
 ### Locked Decisions
 
 - Linux target: `x86_64-unknown-linux-musl` (musl, not glibc) — genuinely static, no dynamic deps
-- macOS aarch64: native build on `macos-14` runner (ARM) — UPDATED: see runner status below
+- macOS aarch64: native build on `macos-14` runner (ARM) — DEVIATION PROPOSED: see runner status below
 - macOS x86_64: native build on `macos-13` runner (Intel) — RETIRED: see runner status below
 - Never use `actions-rs/*` — use `dtolnay/rust-toolchain` and shell commands directly
 - Docker/cross-rs forbidden — no Docker-based cross-compilation
@@ -50,6 +50,8 @@ The macOS runner landscape changed significantly after this project's CONTEXT.md
 
 **Primary recommendation:** Single `release.yml` using a 3-entry matrix `include` list. Linux on `ubuntu-latest`, both macOS targets on a single `macos-15` arm64 runner (one native, one cross). Tag trigger `v[0-9]+.[0-9]+.[0-9]+`. Upload via `softprops/action-gh-release@v2`. Install script detects `uname -s`/`uname -m`, downloads binary + `.sha256` sidecar, verifies before `chmod +x`.
 
+**Note on first-run CI duration:** The first run after a `Cargo.lock` change will be slow. `vendored-libgit2` compiles the full libgit2 C library from source — this takes 5-10 minutes per platform job and is NOT cached across `Cargo.lock` bumps (the cache key includes the lock file hash). Subsequent runs with the same `Cargo.lock` use the `Swatinem/rust-cache` cache and complete in ~2-3 minutes. This is expected behavior, not a build failure.
+
 ---
 
 ## Architectural Responsibility Map
@@ -59,7 +61,7 @@ The macOS runner landscape changed significantly after this project's CONTEXT.md
 | Binary compilation | CI runner | — | Rust compiler on GHA-hosted runner; no server involved |
 | Release artifact upload | CI runner (via GHA action) | GitHub Releases storage | `softprops/action-gh-release` writes to GitHub Releases API |
 | Checksum generation | CI runner (shell step) | — | `shasum -a 256` run inline in workflow YAML |
-| Binary download + verification | User's shell (install script) | — | `curl` + `sha256sum`/`shasum` on user's machine |
+| Binary download + verification | User's shell (install script) | — | `curl` + `shasum` on user's machine |
 | Platform detection | User's shell (install script) | — | `uname -s` + `uname -m` in install script |
 
 ---
@@ -118,6 +120,9 @@ The macOS runner landscape changed significantly after this project's CONTEXT.md
 
 **Recommendation:** Option B (single arm64 runner for both macOS targets). Simpler, uses the modern runner, matches current ecosystem practice, and `macos-15-intel` is on a sunset clock anyway (August 2027). The binary output is identical — Rust's cross-compilation on macOS uses the same Xcode SDK.
 
+> **Deviation from CONTEXT.md locked decision — planner must surface for confirmation:**
+> CONTEXT.md specifies `macos-14` for the aarch64 build. Research recommends `macos-15` instead. `macos-14` is still available (non-breaking), so honoring the locked decision is an option. The recommendation to use `macos-15` is based on it being the current stable runner and consistent with ecosystem practice, but the planner should confirm this upgrade with the user before locking it. If the user prefers `macos-14`, change the `macos-aarch64` matrix entry from `macos-15` to `macos-14` — no other changes needed.
+
 ---
 
 ## Architecture Patterns
@@ -156,9 +161,9 @@ The macOS runner landscape changed significantly after this project's CONTEXT.md
                                      |
                          detect OS + arch (uname -s / uname -m)
                          download binary + .sha256
-                         verify checksum (sha256sum / shasum)
+                         verify checksum (shasum -a 256)
                          chmod +x
-                         execute
+                         execute (binary runs; tmpdir cleaned up on exit)
 ```
 
 ### Recommended Project Structure
@@ -274,6 +279,7 @@ permissions:
 
 ```yaml
 # Source: ripgrep release.yml pattern (verified)
+# [DISCRETIONARY — not locked by CONTEXT.md; this is Claude's recommendation]
 on:
   push:
     tags:
@@ -284,9 +290,13 @@ Use the constrained glob (`v[0-9]+.[0-9]+.[0-9]+`) rather than `v*` to avoid tri
 
 ### Pattern 6: Install Script Design
 
+The install script is a **one-shot downloader and runner**, not a persistent installer. It downloads the binary to a temporary directory, verifies the checksum, runs the tool with the user's arguments, then cleans up the temp directory on exit (via `trap`). The binary is not installed to `PATH` — every invocation re-downloads. This matches the DIST-04 requirement ("downloads and runs").
+
 ```bash
 #!/usr/bin/env sh
-# install.sh — Detect platform, download binary from GitHub Releases, verify checksum, run
+# install.sh — One-shot: detect platform, download binary from GitHub Releases,
+# verify SHA256 checksum, execute with user args, clean up temp dir on exit.
+# The binary is NOT installed permanently — it runs once and is deleted.
 set -eu
 
 REPO="<owner>/git-author-reformer"
@@ -348,7 +358,7 @@ echo "Checksum verified. Running git-author-reformer..."
 
 **Key design choices:**
 - `set -eu` (not `set -euo pipefail` — `pipefail` is bash-only, `sh` doesn't support it)
-- Download to `TMPDIR`, clean up with `trap`
+- Download to `TMPDIR`, clean up with `trap` on EXIT (binary is deleted after the tool runs)
 - Verify checksum BEFORE `chmod +x`, fail closed
 - `shasum -a 256` works on both macOS and Linux (not `sha256sum` which is Linux-only)
 - `curl -fsSL` fails on HTTP errors (`-f`), silent (`-s`), follow redirects (`-L`)
@@ -410,10 +420,10 @@ echo "Checksum verified. Running git-author-reformer..."
 **Warning signs:** Script fails on the very first `set -euo pipefail` line on macOS.
 
 ### Pitfall 6: Parallel Jobs Writing to Same Release Simultaneously
-**What goes wrong:** Two parallel jobs both call `softprops/action-gh-release` at the same time and both try to create the release — one fails.
+**What goes wrong:** Two parallel jobs both call `softprops/action-gh-release` at the same time and both try to create the release — one fails with "Release already exists".
 **Why it happens:** Race condition between parallel matrix jobs.
-**How to avoid:** Use a separate `create-release` job that runs first and sets up the release as a draft; then matrix build jobs upload assets to the existing release. `softprops/action-gh-release@v2` can also handle this with `fail_on_unmatched_files: false` + existing release detection.
-**Warning signs:** Intermittent failures in multi-platform matrix with "Release already exists" error.
+**How to avoid:** `softprops/action-gh-release@v2` handles existing releases gracefully (it updates them, not creates-or-fails). The simpler path is to let the action handle it — no precursor job needed. If stricter control is required, use a `create-release` job with `needs: []` that runs first and creates the release as a draft; then matrix build jobs with `needs: [create-release]` call `gh release upload` to add assets to the existing release. The ripgrep workflow uses this explicit two-job pattern.
+**Warning signs:** Intermittent failures in multi-platform matrix with "Release already exists" or "Unprocessable Entity" error.
 
 ### Pitfall 7: `Cargo.toml` Version Does Not Match Tag
 **What goes wrong:** Release tag is `v1.2.3` but `Cargo.toml` still says `version = "0.1.0"`. User downloads binary claiming to be "v1.2.3" but it was compiled from mismatched source.
@@ -430,6 +440,10 @@ echo "Checksum verified. Running git-author-reformer..."
 ```yaml
 # Source: Synthesized from jj release.yml [VERIFIED] + ripgrep release.yml [VERIFIED]
 # + softprops/action-gh-release README [VERIFIED]
+#
+# Note: This uses a single-job matrix (no separate create-release job).
+# softprops/action-gh-release@v2 handles concurrent uploads to the same release gracefully.
+# If intermittent race-condition errors appear, add a create-release precursor job (ripgrep pattern).
 
 name: release
 
@@ -547,6 +561,8 @@ codegen-units = 1
 
 **`strip = true` is already set:** The `[profile.release]` already strips debug symbols. No `strip` shell command needed in CI. Duplicate stripping would be a no-op.
 
+**First-run duration:** The first CI run compiling `vendored-libgit2` takes 5-10 minutes per platform job (C compilation from source, not cacheable across `Cargo.lock` changes). This is normal. `Swatinem/rust-cache` will cache subsequent runs.
+
 ---
 
 ## Package Legitimacy Audit
@@ -608,7 +624,7 @@ codegen-units = 1
 | Never use `actions-rs/*` | Forbidden tool | Stack uses `dtolnay/rust-toolchain` only |
 | Docker/cross-rs forbidden | Forbidden tool | Workflow uses native runners only; no Docker steps |
 | `x86_64-unknown-linux-musl` for Linux | Target constraint | Matrix entry specifies this target; musl-tools installed |
-| macOS aarch64 on native runner | Platform constraint | `macos-15` (arm64) native build |
+| macOS aarch64 on native runner | Platform constraint | `macos-15` (arm64) native build — deviation from `macos-14` flagged above |
 | macOS x86_64 on native runner | Platform constraint | `macos-15-intel` (Option A) or `macos-15` cross-compile (Option B) — both compliant |
 | Static linking required | Binary constraint | `vendored-libgit2` + `default-features = false` + explicit `crt-static` |
 | Single binary, no dynamic deps | Distribution constraint | Verified by `ldd` check in CI workflow |
@@ -640,6 +656,11 @@ codegen-units = 1
    - What we know: Both work. ripgrep uses `gh release create` + `gh release upload` shell commands. Many other projects use `softprops/action-gh-release@v2`.
    - What's unclear: Neither is strictly better — this is a style choice.
    - Recommendation: Use `softprops/action-gh-release@v2` for clarity and automatic retry logic. If action is unavailable, `gh release create $VERSION --draft && gh release upload $VERSION file file.sha256` is the equivalent.
+
+3. **Should the planner use `macos-14` or `macos-15` for the aarch64 runner?**
+   - What we know: CONTEXT.md locks `macos-14`. `macos-14` is still available. `macos-15` is the current stable runner.
+   - What's unclear: User preference — the locked decision may have been a specific choice or just "whatever was current at the time."
+   - Recommendation: Planner should surface this to the user before locking the plan. Both work.
 
 ---
 
