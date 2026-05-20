@@ -85,7 +85,7 @@ pub fn rewrite_author(
     }
 
     // Section D: post-walk ref / tag / HEAD update pass (extracted as shared helper).
-    update_refs_and_head(repo, &oid_map)?;
+    update_refs_and_head(repo, &oid_map, "rewrite_author")?;
 
     Ok(count)
 }
@@ -97,6 +97,7 @@ pub fn rewrite_author(
 fn update_refs_and_head(
     repo: &git2::Repository,
     oid_map: &HashMap<Oid, Oid>,
+    reflog_msg: &str,
 ) -> Result<(), git2::Error> {
     // D.1 Branch refs — local branches only (BranchType::Local, Pitfall 5).
     for branch_result in repo.branches(Some(git2::BranchType::Local))? {
@@ -109,7 +110,7 @@ fn update_refs_and_head(
             if oid_map.contains_key(&old_tip) {
                 let new_tip = *oid_map.get(&old_tip).unwrap();
                 let mut branch_ref = repo.find_reference(&ref_name)?;
-                branch_ref.set_target(new_tip, "rewrite_author")?;
+                branch_ref.set_target(new_tip, reflog_msg)?;
             }
         }
     }
@@ -146,7 +147,7 @@ fn update_refs_and_head(
                 if oid_map.contains_key(&ref_oid) {
                     let new_oid = *oid_map.get(&ref_oid).unwrap();
                     let mut lw_ref = repo.find_reference(&ref_name)?;
-                    lw_ref.set_target(new_oid, "rewrite_author")?;
+                    lw_ref.set_target(new_oid, reflog_msg)?;
                 }
             }
             _ => {} // trees, blobs, other kinds — skip
@@ -278,7 +279,7 @@ pub fn drop_coauthor(
         }
     }
 
-    update_refs_and_head(repo, &oid_map)?;
+    update_refs_and_head(repo, &oid_map, "drop_coauthor")?;
 
     Ok(count)
 }
