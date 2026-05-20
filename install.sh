@@ -72,7 +72,7 @@ TMPDIR_WORK="$(mktemp -d)"
 trap 'rm -rf "${TMPDIR_WORK}"' EXIT
 
 printf 'Downloading %s %s...\n' "${BINARY_NAME}" "${VERSION}" >&2
-curl -fsSL "${BASE_URL}/${BINARY_NAME}" -o "${TMPDIR_WORK}/git-author-reformer"
+curl -fL --progress-bar "${BASE_URL}/${BINARY_NAME}" -o "${TMPDIR_WORK}/git-author-reformer"
 curl -fsSL "${BASE_URL}/${BINARY_NAME}.sha256" -o "${TMPDIR_WORK}/git-author-reformer.sha256"
 
 verify_checksum "${TMPDIR_WORK}/git-author-reformer" "${TMPDIR_WORK}/git-author-reformer.sha256"
