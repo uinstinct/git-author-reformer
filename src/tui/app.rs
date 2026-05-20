@@ -12,7 +12,6 @@ pub struct App {
 
 pub enum Screen {
     MainMenu { selected: usize },
-    NotImplemented(&'static str),
     AuthorList {
         items: Vec<AuthorIdentity>,
         filter: String,
@@ -24,8 +23,10 @@ pub enum Screen {
         source: AuthorIdentity,
         draft: RenameDraft,
     },
-    /// Placeholder destination for RenameForm Enter — Plan 03-05 adds scan field.
-    Preview(PendingOp),
+    Preview {
+        op: PendingOp,
+        scan: crate::git::scan::RewritePreview,
+    },
     CoAuthorList {
         items: Vec<CoAuthorEntry>,
         filter: String,
@@ -33,6 +34,11 @@ pub enum Screen {
         nucleo: Nucleo<CoAuthorEntry>,
         selected: usize,
     },
+    Success {
+        rewritten: usize,
+        remote_name: Option<String>,
+    },
+    Err(String),
 }
 
 pub struct RenameDraft {
@@ -72,7 +78,7 @@ impl FormField {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PendingOp {
     Rename {
         source: AuthorIdentity,
@@ -272,5 +278,63 @@ mod tests {
         let matched = apply_coauthor_filter(&mut nucleo, "ali");
         assert_eq!(matched.len(), 1);
         assert_eq!(matched[0].name, "Alice");
+    }
+
+    // ---- New tests for Plan 03-05 Task 1 (RED phase) ----
+
+    #[test]
+    fn test_screen_preview_holds_op_and_scan() {
+        // Plan 03-05 Task 1: Screen::Preview must carry both op AND scan fields.
+        use crate::git::scan::RewritePreview;
+        let scan = RewritePreview {
+            affected_count: 5,
+            signed_commit_count: 0,
+            annotated_tags_affected: vec![],
+            has_notes_ref: false,
+            remote_name: Some("origin".to_string()),
+        };
+        let op = PendingOp::Rename {
+            source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            new_name: "Bob".into(),
+            new_email: "bob@x".into(),
+        };
+        let screen = Screen::Preview { op, scan };
+        match screen {
+            Screen::Preview { op: _, scan } => {
+                assert_eq!(scan.affected_count, 5, "scan.affected_count must be accessible via struct variant");
+            }
+            _ => panic!("expected Preview"),
+        }
+    }
+
+    #[test]
+    fn test_screen_err_holds_message() {
+        // Plan 03-05 Task 1: Screen::Err must carry a String message.
+        let screen = Screen::Err("boom".into());
+        match screen {
+            Screen::Err(msg) => assert_eq!(msg, "boom"),
+            _ => panic!("expected Err"),
+        }
+    }
+
+    #[test]
+    fn test_screen_success_remote_name_optional() {
+        // Plan 03-05 Task 1: Screen::Success with rewritten count + optional remote_name.
+        let s1 = Screen::Success { rewritten: 3, remote_name: None };
+        let s2 = Screen::Success { rewritten: 7, remote_name: Some("origin".to_string()) };
+        match s1 {
+            Screen::Success { rewritten, remote_name } => {
+                assert_eq!(rewritten, 3);
+                assert!(remote_name.is_none());
+            }
+            _ => panic!("expected Success"),
+        }
+        match s2 {
+            Screen::Success { rewritten, remote_name } => {
+                assert_eq!(rewritten, 7);
+                assert_eq!(remote_name.as_deref(), Some("origin"));
+            }
+            _ => panic!("expected Success"),
+        }
     }
 }
