@@ -37,7 +37,14 @@ pub fn render(frame: &mut Frame, app: &App) {
             matched,
             selected,
             ..
-        } => render_hook_add_list(frame, frame.area(), current_strip, filter, matched, *selected),
+        } => render_hook_add_list(
+            frame,
+            frame.area(),
+            current_strip,
+            filter,
+            matched,
+            *selected,
+        ),
         Screen::HookManageList {
             filter,
             matched,

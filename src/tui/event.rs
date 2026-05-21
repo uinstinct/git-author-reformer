@@ -132,35 +132,33 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                             }
                         }
                     }
-                    MenuChoice::ManageHook => {
-                        match crate::hook::read_strip_list(&app.repo) {
-                            Ok(crate::hook::HookState::Absent) => {
-                                app.screen = Screen::HookSuccess {
-                                    state: crate::hook::HookState::Absent,
-                                };
-                            }
-                            Ok(crate::hook::HookState::Managed { emails }) => {
-                                let mut nucleo = build_strip_nucleo(&emails);
-                                let matched = apply_strip_filter(&mut nucleo, "");
-                                app.screen = Screen::HookManageList {
-                                    items: emails,
-                                    filter: String::new(),
-                                    matched,
-                                    nucleo,
-                                    selected: 0,
-                                };
-                            }
-                            Ok(crate::hook::HookState::NotToolManaged(p)) => {
-                                app.screen = Screen::Err(format!(
-                                    "Foreign hook at {} — remove or rename it first.",
-                                    p.display()
-                                ));
-                            }
-                            Err(e) => {
-                                app.screen = Screen::Err(e.to_string());
-                            }
+                    MenuChoice::ManageHook => match crate::hook::read_strip_list(&app.repo) {
+                        Ok(crate::hook::HookState::Absent) => {
+                            app.screen = Screen::HookSuccess {
+                                state: crate::hook::HookState::Absent,
+                            };
                         }
-                    }
+                        Ok(crate::hook::HookState::Managed { emails }) => {
+                            let mut nucleo = build_strip_nucleo(&emails);
+                            let matched = apply_strip_filter(&mut nucleo, "");
+                            app.screen = Screen::HookManageList {
+                                items: emails,
+                                filter: String::new(),
+                                matched,
+                                nucleo,
+                                selected: 0,
+                            };
+                        }
+                        Ok(crate::hook::HookState::NotToolManaged(p)) => {
+                            app.screen = Screen::Err(format!(
+                                "Foreign hook at {} — remove or rename it first.",
+                                p.display()
+                            ));
+                        }
+                        Err(e) => {
+                            app.screen = Screen::Err(e.to_string());
+                        }
+                    },
                 }
             }
             KeyCode::Char('q') | KeyCode::Esc => app.should_exit = true,
