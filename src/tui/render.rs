@@ -438,11 +438,54 @@ fn render_hook_add_list(
 fn render_hook_manage_list(
     frame: &mut Frame,
     area: Rect,
-    _filter: &str,
-    _matched: &[String],
-    _selected: usize,
+    filter: &str,
+    matched: &[String],
+    selected: usize,
 ) {
-    frame.render_widget(Paragraph::new("Manage hook (todo)"), area);
+    let [filter_row, body, hint] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+    ])
+    .areas(area);
+
+    // Zone 1: Filter input with cursor
+    let filter_text = format!("/ {}", filter);
+    frame.render_widget(
+        Paragraph::new(filter_text.as_str()).block(Block::bordered().title("Filter")),
+        filter_row,
+    );
+    let cursor_x = filter_row.x + 1 + 2 + filter.chars().count() as u16;
+    let cursor_y = filter_row.y + 1;
+    frame.set_cursor_position((cursor_x, cursor_y));
+
+    // Zone 2: Strip email list
+    let title = if matched.is_empty() {
+        "Strip list (empty)".to_string()
+    } else {
+        format!("Strip list ({} entries)", matched.len())
+    };
+    let items: Vec<ListItem> = matched
+        .iter()
+        .map(|email| ListItem::new(email.as_str()))
+        .collect();
+    let list = List::new(items)
+        .block(Block::bordered().title(title))
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .highlight_symbol("> ");
+    let mut state = ListState::default();
+    state.select(if matched.is_empty() {
+        None
+    } else {
+        Some(selected)
+    });
+    frame.render_stateful_widget(list, body, &mut state);
+
+    // Zone 3: Hint
+    frame.render_widget(
+        Paragraph::new("type: filter  up/down: move  Enter: remove  Esc: back"),
+        hint,
+    );
 }
 
 fn render_hook_success(frame: &mut Frame, area: Rect, state: &HookState) {
