@@ -1,6 +1,7 @@
 use crate::tui::app::{
-    apply_coauthor_filter, apply_filter, build_author_nucleo, build_coauthor_nucleo, App,
-    FormField, MenuChoice, PendingOp, RenameDraft, Screen,
+    apply_coauthor_filter, apply_filter, apply_strip_filter, build_author_nucleo,
+    build_coauthor_nucleo, build_strip_nucleo, App, FormField, MenuChoice, PendingOp, RenameDraft,
+    Screen,
 };
 use crossterm::event::KeyCode;
 
@@ -1238,5 +1239,122 @@ mod tests {
         };
         handle_key(&mut app, KeyCode::Enter);
         assert!(app.should_exit, "HookSuccess any-key must set should_exit");
+    }
+
+    // ---- New tests for Plan 06-04 (Manage hook flow) ----
+
+    fn make_hook_manage_list_screen(emails: &[&str]) -> Screen {
+        let items: Vec<String> = emails.iter().map(|e| e.to_string()).collect();
+        let mut nucleo = build_strip_nucleo(&items);
+        let matched = apply_strip_filter(&mut nucleo, "");
+        Screen::HookManageList {
+            items,
+            filter: String::new(),
+            matched,
+            nucleo,
+            selected: 0,
+        }
+    }
+
+    #[test]
+    fn test_main_menu_routes_manage_hook_empty() {
+        // HOOK-02: Selecting 'Manage auto-strip hook' (index 3) on a repo with no hook
+        // shows HookSuccess { state: Absent } — empty state, no list screen.
+        // FAILS with 06-02 stub (Screen::Err("not yet implemented")).
+        let (_dir, mut app) = make_test_app_with_commits();
+        // Navigate to index 3 (ManageHook)
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(
+                app.screen,
+                Screen::HookSuccess {
+                    state: crate::hook::HookState::Absent
+                }
+            ),
+            "expected HookSuccess(Absent) for ManageHook on repo with no hook"
+        );
+    }
+
+    #[test]
+    fn test_main_menu_routes_manage_hook_with_entries() {
+        // HOOK-02: Selecting 'Manage' on a repo with hook entries shows HookManageList.
+        // FAILS with 06-02 stub.
+        let (_dir, mut app) = make_test_app_with_commits();
+        crate::hook::install_strip(&app.repo, "bob@example.com").unwrap();
+        // Navigate to index 3 (ManageHook)
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(app.screen, Screen::HookManageList { .. }),
+            "expected HookManageList for ManageHook on repo with installed hook"
+        );
+    }
+
+    #[test]
+    fn test_manage_remove_single_entry() {
+        // HOOK-09/HOOK-11: HookManageList with two emails; removing one -> HookSuccess(Managed)
+        // with the remaining email (exercises UpdateResult::Updated + re-read path).
+        // FAILS because HookManageList arm is a placeholder.
+        let (_dir, mut app) = make_test_app_with_commits();
+        crate::hook::install_strip(&app.repo, "bob@example.com").unwrap();
+        crate::hook::install_strip(&app.repo, "carol@example.com").unwrap();
+        app.screen = make_hook_manage_list_screen(&["bob@example.com", "carol@example.com"]);
+        // Press Enter to remove the first (bob@example.com)
+        handle_key(&mut app, KeyCode::Enter);
+        match &app.screen {
+            Screen::HookSuccess {
+                state: crate::hook::HookState::Managed { emails },
+            } => {
+                assert!(
+                    emails.iter().any(|e| e == "carol@example.com"),
+                    "carol@example.com must remain after removing bob"
+                );
+                assert!(
+                    !emails.iter().any(|e| e == "bob@example.com"),
+                    "bob@example.com must not be in remaining list"
+                );
+            }
+            _ => panic!(
+                "expected HookSuccess(Managed) after removing one of two entries, got other screen"
+            ),
+        }
+    }
+
+    #[test]
+    fn test_manage_remove_last_entry() {
+        // HOOK-09/HOOK-11: HookManageList with one email; removing it -> HookSuccess(Absent)
+        // directly (HookDeleted path — no re-read; HOOK-11 exception).
+        // FAILS because HookManageList arm is a placeholder.
+        let (_dir, mut app) = make_test_app_with_commits();
+        crate::hook::install_strip(&app.repo, "bob@example.com").unwrap();
+        app.screen = make_hook_manage_list_screen(&["bob@example.com"]);
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(
+                app.screen,
+                Screen::HookSuccess {
+                    state: crate::hook::HookState::Absent
+                }
+            ),
+            "expected HookSuccess(Absent) after removing the last entry"
+        );
+    }
+
+    #[test]
+    fn test_manage_esc_returns_to_main_menu() {
+        // HOOK-02: Esc from HookManageList returns to MainMenu { selected: 3 }.
+        // FAILS because HookManageList arm is a placeholder.
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_hook_manage_list_screen(&["bob@example.com"]);
+        handle_key(&mut app, KeyCode::Esc);
+        assert!(
+            matches!(app.screen, Screen::MainMenu { selected: 3 }),
+            "expected MainMenu {{ selected: 3 }} after Esc from HookManageList"
+        );
     }
 }
