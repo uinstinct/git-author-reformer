@@ -22,4 +22,7 @@ pub enum AppError {
 
     #[error("Terminal I/O error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Existing commit-msg hook at {0:?} is not managed by git-author-reformer.\nRemove or rename the file, then re-run.")]
+    HookExists(std::path::PathBuf),
 }
