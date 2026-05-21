@@ -369,12 +369,70 @@ fn render_err(frame: &mut Frame, area: Rect, msg: &str) {
 fn render_hook_add_list(
     frame: &mut Frame,
     area: Rect,
-    _current_strip: &[String],
-    _filter: &str,
-    _matched: &[CoAuthorEntry],
-    _selected: usize,
+    current_strip: &[String],
+    filter: &str,
+    matched: &[CoAuthorEntry],
+    selected: usize,
 ) {
-    frame.render_widget(Paragraph::new("Add hook (todo)"), area);
+    // Three-zone layout: strip list header | filter input | co-author list | hint
+    let [strip_header, filter_row, body, hint] = Layout::vertical([
+        Constraint::Length(4),
+        Constraint::Length(3),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+    ])
+    .areas(area);
+
+    // Zone 1: Current strip list
+    let strip_text = if current_strip.is_empty() {
+        "no entries yet".to_string()
+    } else {
+        current_strip.join("\n")
+    };
+    frame.render_widget(
+        Paragraph::new(strip_text)
+            .block(Block::bordered().title("Current strip list"))
+            .wrap(Wrap { trim: false }),
+        strip_header,
+    );
+
+    // Zone 2: Filter input
+    let filter_text = format!("/ {}", filter);
+    frame.render_widget(
+        Paragraph::new(filter_text.as_str()).block(Block::bordered().title("Filter")),
+        filter_row,
+    );
+    let cursor_x = filter_row.x + 1 + 2 + filter.chars().count() as u16;
+    let cursor_y = filter_row.y + 1;
+    frame.set_cursor_position((cursor_x, cursor_y));
+
+    // Zone 3: Co-author list
+    let items: Vec<ListItem> = matched
+        .iter()
+        .map(|item| {
+            ListItem::new(format!(
+                "{:>4}  {} <{}>",
+                item.commit_count, item.name, item.email
+            ))
+        })
+        .collect();
+    let list = List::new(items)
+        .block(Block::bordered().title(format!("Co-authors ({} match)", matched.len())))
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .highlight_symbol("> ");
+    let mut state = ListState::default();
+    state.select(if matched.is_empty() {
+        None
+    } else {
+        Some(selected)
+    });
+    frame.render_stateful_widget(list, body, &mut state);
+
+    // Zone 4: Hint
+    frame.render_widget(
+        Paragraph::new("type: filter  up/down: move  Enter: select  Esc: back"),
+        hint,
+    );
 }
 
 fn render_hook_manage_list(
@@ -387,10 +445,44 @@ fn render_hook_manage_list(
     frame.render_widget(Paragraph::new("Manage hook (todo)"), area);
 }
 
-fn render_hook_success(frame: &mut Frame, area: Rect, _state: &HookState) {
-    frame.render_widget(Paragraph::new("Hook success (todo)"), area);
+fn render_hook_success(frame: &mut Frame, area: Rect, state: &HookState) {
+    let text = match state {
+        HookState::Absent => {
+            "No hook installed — no emails configured.\n\nAny key to exit.".to_string()
+        }
+        HookState::Managed { emails } => {
+            let list = emails
+                .iter()
+                .map(|e| format!("  {}", e))
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!(
+                "Hook active — stripping {} email(s):\n{}\n\nAny key to exit.",
+                emails.len(),
+                list
+            )
+        }
+        HookState::NotToolManaged(_) => {
+            "Error: foreign hook (should not reach this screen).".to_string()
+        }
+    };
+    frame.render_widget(
+        Paragraph::new(text)
+            .block(Block::bordered().title("Hook Status"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
 }
 
-fn render_hook_already_stripped(frame: &mut Frame, area: Rect, _email: &str) {
-    frame.render_widget(Paragraph::new("Already stripped (todo)"), area);
+fn render_hook_already_stripped(frame: &mut Frame, area: Rect, email: &str) {
+    let text = format!(
+        "Already stripped: {}\n\nThis email is already in the strip list.\n\nAny key to return to menu.",
+        email
+    );
+    frame.render_widget(
+        Paragraph::new(text)
+            .block(Block::bordered().title("No change"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
 }

@@ -97,7 +97,39 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                         }
                     }
                     MenuChoice::AddHook => {
-                        app.screen = Screen::Err("not yet implemented".into());
+                        // Read current strip list (no preflight — hook install bypasses SAFE-01/02)
+                        let current_strip = match crate::hook::read_strip_list(&app.repo) {
+                            Ok(crate::hook::HookState::Absent) => vec![],
+                            Ok(crate::hook::HookState::Managed { emails }) => emails,
+                            Ok(crate::hook::HookState::NotToolManaged(p)) => {
+                                app.screen = Screen::Err(format!(
+                                    "Foreign hook at {} — remove or rename it first.",
+                                    p.display()
+                                ));
+                                return;
+                            }
+                            Err(e) => {
+                                app.screen = Screen::Err(e.to_string());
+                                return;
+                            }
+                        };
+                        match crate::git::reader::enumerate_coauthors(&app.repo) {
+                            Ok(items) => {
+                                let mut nucleo = build_coauthor_nucleo(&items);
+                                let matched = apply_coauthor_filter(&mut nucleo, "");
+                                app.screen = Screen::HookAddList {
+                                    current_strip,
+                                    items,
+                                    filter: String::new(),
+                                    matched,
+                                    nucleo,
+                                    selected: 0,
+                                };
+                            }
+                            Err(e) => {
+                                app.screen = Screen::Err(e.to_string());
+                            }
+                        }
                     }
                     MenuChoice::ManageHook => {
                         app.screen = Screen::Err("not yet implemented".into());
@@ -270,10 +302,57 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             _ => app.should_exit = true,
         },
-        Screen::HookAddList { .. } => {}
+        Screen::HookAddList {
+            filter,
+            matched,
+            nucleo,
+            selected,
+            ..
+        } => match key {
+            KeyCode::Enter => {
+                // NLL pattern: clone email out before reassigning app.screen
+                let email = matched.get(*selected).map(|t| t.email.clone());
+                if let Some(email) = email {
+                    match crate::hook::install_strip(&app.repo, &email) {
+                        Ok(crate::hook::AddResult::Installed { .. }) => {
+                            match crate::hook::read_strip_list(&app.repo) {
+                                Ok(state) => app.screen = Screen::HookSuccess { state },
+                                Err(e) => app.screen = Screen::Err(e.to_string()),
+                            }
+                        }
+                        Ok(crate::hook::AddResult::AlreadyStripped) => {
+                            app.screen = Screen::HookAlreadyStripped { email };
+                        }
+                        Err(e) => app.screen = Screen::Err(e.to_string()),
+                    }
+                }
+            }
+            KeyCode::Char(c) => {
+                filter.push(c);
+                *matched = apply_coauthor_filter(nucleo, filter);
+                *selected = 0;
+            }
+            KeyCode::Backspace => {
+                filter.pop();
+                *matched = apply_coauthor_filter(nucleo, filter);
+                *selected = 0;
+            }
+            KeyCode::Down if !matched.is_empty() => {
+                *selected = (*selected + 1) % matched.len();
+            }
+            KeyCode::Up if !matched.is_empty() => {
+                *selected = (*selected + matched.len() - 1) % matched.len();
+            }
+            KeyCode::Esc => app.screen = Screen::MainMenu { selected: 2 },
+            _ => {}
+        },
         Screen::HookManageList { .. } => {}
-        Screen::HookSuccess { .. } => {}
-        Screen::HookAlreadyStripped { .. } => {}
+        Screen::HookSuccess { .. } => {
+            app.should_exit = true;
+        }
+        Screen::HookAlreadyStripped { .. } => {
+            app.screen = Screen::MainMenu { selected: 2 };
+        }
         Screen::Err(_) => {
             app.should_exit = true;
         }
