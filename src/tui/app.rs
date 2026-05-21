@@ -41,6 +41,27 @@ pub enum Screen {
         remote_name: Option<String>,
         copied: bool,
     },
+    HookAddList {
+        current_strip: Vec<String>,
+        items: Vec<CoAuthorEntry>,
+        filter: String,
+        matched: Vec<CoAuthorEntry>,
+        nucleo: Nucleo<CoAuthorEntry>,
+        selected: usize,
+    },
+    HookManageList {
+        items: Vec<String>,
+        filter: String,
+        matched: Vec<String>,
+        nucleo: Nucleo<String>,
+        selected: usize,
+    },
+    HookSuccess {
+        state: crate::hook::HookState,
+    },
+    HookAlreadyStripped {
+        email: String,
+    },
     Err(String),
 }
 
@@ -96,14 +117,17 @@ pub enum PendingOp {
 pub enum MenuChoice {
     Rename,
     Drop,
+    AddHook,
+    ManageHook,
 }
 
 impl MenuChoice {
     pub fn from_index(i: usize) -> Self {
-        if i == 0 {
-            Self::Rename
-        } else {
-            Self::Drop
+        match i {
+            0 => Self::Rename,
+            1 => Self::Drop,
+            2 => Self::AddHook,
+            _ => Self::ManageHook,
         }
     }
 
@@ -111,11 +135,13 @@ impl MenuChoice {
         match self {
             Self::Rename => "Rename an author",
             Self::Drop => "Drop a co-author",
+            Self::AddHook => "Add co-author auto-strip hook",
+            Self::ManageHook => "Manage auto-strip hook",
         }
     }
 
-    pub fn all() -> [Self; 2] {
-        [Self::Rename, Self::Drop]
+    pub fn all() -> [Self; 4] {
+        [Self::Rename, Self::Drop, Self::AddHook, Self::ManageHook]
     }
 }
 
@@ -168,6 +194,27 @@ pub fn apply_coauthor_filter(
     nucleo: &mut Nucleo<CoAuthorEntry>,
     query: &str,
 ) -> Vec<CoAuthorEntry> {
+    nucleo
+        .pattern
+        .reparse(0, query, CaseMatching::Ignore, Normalization::Smart, false);
+    nucleo.tick(10);
+    let snap = nucleo.snapshot();
+    snap.matched_items(..).map(|m| m.data.clone()).collect()
+}
+
+pub fn build_strip_nucleo(items: &[String]) -> Nucleo<String> {
+    let nucleo = Nucleo::new(Config::DEFAULT, Arc::new(|| {}), None, 1);
+    let injector = nucleo.injector();
+    for item in items {
+        let item = item.clone();
+        injector.push(item.clone(), move |_, cols| {
+            cols[0] = item.clone().into();
+        });
+    }
+    nucleo
+}
+
+pub fn apply_strip_filter(nucleo: &mut Nucleo<String>, query: &str) -> Vec<String> {
     nucleo
         .pattern
         .reparse(0, query, CaseMatching::Ignore, Normalization::Smart, false);
@@ -290,6 +337,21 @@ mod tests {
         let matched = apply_coauthor_filter(&mut nucleo, "ali");
         assert_eq!(matched.len(), 1);
         assert_eq!(matched[0].name, "Alice");
+    }
+
+    #[test]
+    fn test_menu_choice_all_has_four_items() {
+        // HOOK-01/HOOK-02: main menu must offer four choices.
+        assert_eq!(MenuChoice::all().len(), 4);
+    }
+
+    #[test]
+    fn test_menu_choice_labels() {
+        // HOOK-01/HOOK-02: label strings must match the spec exactly.
+        assert_eq!(MenuChoice::Rename.label(), "Rename an author");
+        assert_eq!(MenuChoice::Drop.label(), "Drop a co-author");
+        assert_eq!(MenuChoice::AddHook.label(), "Add co-author auto-strip hook");
+        assert_eq!(MenuChoice::ManageHook.label(), "Manage auto-strip hook");
     }
 
     // ---- New tests for Plan 03-05 Task 1 (RED phase) ----

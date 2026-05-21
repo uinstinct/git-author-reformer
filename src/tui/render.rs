@@ -1,5 +1,6 @@
 use crate::git::scan::RewritePreview;
 use crate::git::types::{AuthorIdentity, CoAuthorEntry};
+use crate::hook::HookState;
 use crate::tui::app::{App, FormField, MenuChoice, PendingOp, RenameDraft, Screen};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -30,6 +31,23 @@ pub fn render(frame: &mut Frame, app: &App) {
             remote_name,
             copied,
         } => render_success(frame, frame.area(), *rewritten, remote_name, *copied),
+        Screen::HookAddList {
+            current_strip,
+            filter,
+            matched,
+            selected,
+            ..
+        } => render_hook_add_list(frame, frame.area(), current_strip, filter, matched, *selected),
+        Screen::HookManageList {
+            filter,
+            matched,
+            selected,
+            ..
+        } => render_hook_manage_list(frame, frame.area(), filter, matched, *selected),
+        Screen::HookSuccess { state } => render_hook_success(frame, frame.area(), state),
+        Screen::HookAlreadyStripped { email } => {
+            render_hook_already_stripped(frame, frame.area(), email)
+        }
         Screen::Err(msg) => render_err(frame, frame.area(), msg),
     }
 }
@@ -346,4 +364,33 @@ fn render_err(frame: &mut Frame, area: Rect, msg: &str) {
             .wrap(Wrap { trim: false }),
         area,
     );
+}
+
+fn render_hook_add_list(
+    frame: &mut Frame,
+    area: Rect,
+    _current_strip: &[String],
+    _filter: &str,
+    _matched: &[CoAuthorEntry],
+    _selected: usize,
+) {
+    frame.render_widget(Paragraph::new("Add hook (todo)"), area);
+}
+
+fn render_hook_manage_list(
+    frame: &mut Frame,
+    area: Rect,
+    _filter: &str,
+    _matched: &[String],
+    _selected: usize,
+) {
+    frame.render_widget(Paragraph::new("Manage hook (todo)"), area);
+}
+
+fn render_hook_success(frame: &mut Frame, area: Rect, _state: &HookState) {
+    frame.render_widget(Paragraph::new("Hook success (todo)"), area);
+}
+
+fn render_hook_already_stripped(frame: &mut Frame, area: Rect, _email: &str) {
+    frame.render_widget(Paragraph::new("Already stripped (todo)"), area);
 }
