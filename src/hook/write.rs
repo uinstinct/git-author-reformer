@@ -5,7 +5,12 @@
 //!
 //! ORDER IS LOAD-BEARING: set permissions BEFORE rename — Pitfall §3.
 
+use std::fs;
+use std::io::Write;
 use std::path::Path;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 /// Write `contents` to `target` atomically with mode 0755 on Unix.
 ///
@@ -13,14 +18,25 @@ use std::path::Path;
 /// 1. Compute `tmp = target.with_extension("tmp.<pid>")`.
 /// 2. Create tmp, write bytes, `sync_all`.
 /// 3. On Unix: set mode 0755 on tmp (BEFORE rename — Pitfall §3).
-/// 4. `fs::rename(tmp, target)` — atomic on same filesystem.
-pub(crate) fn atomic_write_executable(_target: &Path, _contents: &str) -> std::io::Result<()> {
-    unimplemented!("Plan 04 Task 1")
+/// 4. Rename tmp → target atomically (same filesystem).
+pub(crate) fn atomic_write_executable(target: &Path, contents: &str) -> std::io::Result<()> {
+    let tmp = target.with_extension(format!("tmp.{}", std::process::id()));
+    {
+        let mut f = fs::File::create(&tmp)?;
+        f.write_all(contents.as_bytes())?;
+        f.sync_all()?;
+    }
+    let mut perms = fs::metadata(&tmp)?.permissions();
+    #[cfg(unix)]
+    perms.set_mode(0o755);
+    fs::set_permissions(&tmp, perms)?;
+    fs::rename(&tmp, target)?;
+    Ok(())
 }
 
 /// Delete the hook file. Called by `remove_strip` when the resulting list is empty (HOOK-10).
-pub(crate) fn delete_hook(_path: &Path) -> std::io::Result<()> {
-    unimplemented!("Plan 04 Task 1")
+pub(crate) fn delete_hook(path: &Path) -> std::io::Result<()> {
+    fs::remove_file(path)
 }
 
 #[cfg(test)]
