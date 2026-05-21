@@ -1,8 +1,8 @@
 use clap::Parser;
 use git_author_reformer::{error, git, tui};
 use std::io::IsTerminal;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(name = "git-author-reformer", version)]
@@ -12,8 +12,8 @@ fn run() -> Result<(), error::AppError> {
     // 1. SIGTERM flag — registered BEFORE ratatui::init() (RESEARCH §Pattern 1).
     let term_flag = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term_flag))?;
-    signal_hook::flag::register(signal_hook::consts::SIGINT,  Arc::clone(&term_flag))?;
-    signal_hook::flag::register(signal_hook::consts::SIGHUP,  Arc::clone(&term_flag))?;
+    signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term_flag))?;
+    signal_hook::flag::register(signal_hook::consts::SIGHUP, Arc::clone(&term_flag))?;
 
     // 2. Pre-flight (existing Phase 1 gates).
     let repo = git::open_repo()?;

@@ -105,7 +105,9 @@ mod tests {
     #[test]
     fn render_hook_contains_both_markers_in_order() {
         let out = render_hook(&["bob@example.com".to_string()]);
-        let begin_pos = out.find(BEGIN_MARKER).expect("BEGIN_MARKER must be present");
+        let begin_pos = out
+            .find(BEGIN_MARKER)
+            .expect("BEGIN_MARKER must be present");
         let end_pos = out.find(END_MARKER).expect("END_MARKER must be present");
         assert!(
             begin_pos < end_pos,
@@ -218,9 +220,18 @@ mod tests {
         // ${...} inside single-quoted awk blocks is fine (not shell-evaluated),
         // but the template must not emit it outside — test that the raw string
         // doesn't contain ${ at all since our template uses $0/$1 not ${...}
-        assert!(!out.contains("${"), "must not use ${{...}} expansion (bash-ism)");
-        assert!(!out.contains(" function "), "must not use 'function' keyword (bash-ism)");
-        assert!(!out.contains("printf"), "must not use printf (not needed, not POSIX-mandated for hooks)");
+        assert!(
+            !out.contains("${"),
+            "must not use ${{...}} expansion (bash-ism)"
+        );
+        assert!(
+            !out.contains(" function "),
+            "must not use 'function' keyword (bash-ism)"
+        );
+        assert!(
+            !out.contains("printf"),
+            "must not use printf (not needed, not POSIX-mandated for hooks)"
+        );
     }
 
     #[test]
@@ -238,7 +249,10 @@ mod tests {
         // Mirror of parse_coauthor_value's rfind('<') / rfind('>') logic
         // The awk equivalent is a backwards for-loop using substr()
         let out = render_hook(&["bob@example.com".to_string()]);
-        assert!(out.contains("substr("), "awk must use substr() for structural extraction");
+        assert!(
+            out.contains("substr("),
+            "awk must use substr() for structural extraction"
+        );
         assert!(
             out.contains("for ("),
             "awk must use a for loop for backwards < > scan (rfind equivalent)"

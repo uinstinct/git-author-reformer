@@ -111,6 +111,9 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("nonexistent");
         let result = delete_hook(&path);
-        assert!(result.is_err(), "delete_hook on missing file must return Err");
+        assert!(
+            result.is_err(),
+            "delete_hook on missing file must return Err"
+        );
     }
 }

@@ -1,27 +1,35 @@
 use crate::git::scan::RewritePreview;
 use crate::git::types::{AuthorIdentity, CoAuthorEntry};
 use crate::tui::app::{App, FormField, MenuChoice, PendingOp, RenameDraft, Screen};
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph, Wrap};
+use ratatui::Frame;
 
 pub fn render(frame: &mut Frame, app: &App) {
     match &app.screen {
         Screen::MainMenu { selected } => render_main_menu(frame, frame.area(), *selected),
-        Screen::AuthorList { filter, matched, selected, .. } => {
-            render_author_list(frame, frame.area(), filter, matched, *selected)
-        }
+        Screen::AuthorList {
+            filter,
+            matched,
+            selected,
+            ..
+        } => render_author_list(frame, frame.area(), filter, matched, *selected),
         Screen::RenameForm { source, draft } => {
             render_rename_form(frame, frame.area(), source, draft)
         }
         Screen::Preview { op, scan } => render_preview(frame, frame.area(), op, scan),
-        Screen::CoAuthorList { filter, matched, selected, .. } => {
-            render_coauthor_list(frame, frame.area(), filter, matched, *selected)
-        }
-        Screen::Success { rewritten, remote_name, copied } => {
-            render_success(frame, frame.area(), *rewritten, remote_name, *copied)
-        }
+        Screen::CoAuthorList {
+            filter,
+            matched,
+            selected,
+            ..
+        } => render_coauthor_list(frame, frame.area(), filter, matched, *selected),
+        Screen::Success {
+            rewritten,
+            remote_name,
+            copied,
+        } => render_success(frame, frame.area(), *rewritten, remote_name, *copied),
         Screen::Err(msg) => render_err(frame, frame.area(), msg),
     }
 }
@@ -90,14 +98,15 @@ fn render_author_list(
         })
         .collect();
     let list = List::new(items)
-        .block(
-            Block::bordered()
-                .title(format!("Authors ({} match)", matched.len())),
-        )
+        .block(Block::bordered().title(format!("Authors ({} match)", matched.len())))
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
         .highlight_symbol("> ");
     let mut state = ListState::default();
-    state.select(if matched.is_empty() { None } else { Some(selected) });
+    state.select(if matched.is_empty() {
+        None
+    } else {
+        Some(selected)
+    });
     frame.render_stateful_widget(list, body, &mut state);
 
     frame.render_widget(
@@ -106,12 +115,7 @@ fn render_author_list(
     );
 }
 
-fn render_rename_form(
-    frame: &mut Frame,
-    area: Rect,
-    source: &AuthorIdentity,
-    draft: &RenameDraft,
-) {
+fn render_rename_form(frame: &mut Frame, area: Rect, source: &AuthorIdentity, draft: &RenameDraft) {
     let [header, name_field, email_field, footer] = Layout::vertical([
         Constraint::Length(3),
         Constraint::Length(3),
@@ -134,7 +138,11 @@ fn render_rename_form(
     } else {
         Style::default()
     };
-    let name_title = if name_focused { "* New name" } else { "New name" };
+    let name_title = if name_focused {
+        "* New name"
+    } else {
+        "New name"
+    };
     frame.render_widget(
         Paragraph::new(draft.new_name.as_str())
             .block(Block::bordered().title(name_title).border_style(name_style)),
@@ -148,10 +156,17 @@ fn render_rename_form(
     } else {
         Style::default()
     };
-    let email_title = if email_focused { "* New email" } else { "New email" };
+    let email_title = if email_focused {
+        "* New email"
+    } else {
+        "New email"
+    };
     frame.render_widget(
-        Paragraph::new(draft.new_email.as_str())
-            .block(Block::bordered().title(email_title).border_style(email_style)),
+        Paragraph::new(draft.new_email.as_str()).block(
+            Block::bordered()
+                .title(email_title)
+                .border_style(email_style),
+        ),
         email_field,
     );
 
@@ -208,14 +223,15 @@ fn render_coauthor_list(
         })
         .collect();
     let list = List::new(items)
-        .block(
-            Block::bordered()
-                .title(format!("Co-authors ({} match)", matched.len())),
-        )
+        .block(Block::bordered().title(format!("Co-authors ({} match)", matched.len())))
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
         .highlight_symbol("> ");
     let mut state = ListState::default();
-    state.select(if matched.is_empty() { None } else { Some(selected) });
+    state.select(if matched.is_empty() {
+        None
+    } else {
+        Some(selected)
+    });
     frame.render_stateful_widget(list, body, &mut state);
 
     frame.render_widget(
@@ -234,7 +250,11 @@ fn render_preview(frame: &mut Frame, area: Rect, op: &PendingOp, scan: &RewriteP
 
     // Header: one-line operation summary
     let header_text = match op {
-        PendingOp::Rename { source, new_name, new_email } => {
+        PendingOp::Rename {
+            source,
+            new_name,
+            new_email,
+        } => {
             format!(
                 "Rename: {} <{}> \u{2192} {} <{}>",
                 source.name, source.email, new_name, new_email
@@ -302,7 +322,11 @@ fn render_success(
     copied: bool,
 ) {
     let remote = remote_name.as_deref().unwrap_or("<remote>");
-    let copy_hint = if copied { "Copied!  |  Any key to exit" } else { "Press 'c' to copy  |  Any key to exit" };
+    let copy_hint = if copied {
+        "Copied!  |  Any key to exit"
+    } else {
+        "Press 'c' to copy  |  Any key to exit"
+    };
     let text = format!(
         "\u{2714} Rewrote {} commit(s).\n\nRun the following to update the remote:\n\n  git push --force-with-lease --all {}\n\n{}",
         rewritten, remote, copy_hint

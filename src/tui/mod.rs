@@ -2,11 +2,11 @@ pub mod app;
 pub mod event;
 pub mod render;
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 use crossterm::event::{Event, KeyEventKind};
 use ratatui::DefaultTerminal;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
 pub fn run_with_terminal(
     terminal: &mut DefaultTerminal,

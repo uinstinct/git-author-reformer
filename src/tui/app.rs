@@ -11,7 +11,9 @@ pub struct App {
 }
 
 pub enum Screen {
-    MainMenu { selected: usize },
+    MainMenu {
+        selected: usize,
+    },
     AuthorList {
         items: Vec<AuthorIdentity>,
         filter: String,
@@ -162,7 +164,10 @@ pub fn build_coauthor_nucleo(items: &[CoAuthorEntry]) -> Nucleo<CoAuthorEntry> {
     nucleo
 }
 
-pub fn apply_coauthor_filter(nucleo: &mut Nucleo<CoAuthorEntry>, query: &str) -> Vec<CoAuthorEntry> {
+pub fn apply_coauthor_filter(
+    nucleo: &mut Nucleo<CoAuthorEntry>,
+    query: &str,
+) -> Vec<CoAuthorEntry> {
     nucleo
         .pattern
         .reparse(0, query, CaseMatching::Ignore, Normalization::Smart, false);
@@ -197,7 +202,10 @@ mod tests {
     fn test_rename_draft_is_complete_only_when_both_fields_non_empty() {
         // RENAME-02: form submission requires both fields filled.
         let mut draft = RenameDraft::default();
-        assert!(!draft.is_complete(), "empty name and email: should not be complete");
+        assert!(
+            !draft.is_complete(),
+            "empty name and email: should not be complete"
+        );
 
         draft.new_name = "Alice".to_string();
         assert!(!draft.is_complete(), "empty email: should not be complete");
@@ -207,7 +215,10 @@ mod tests {
         assert!(!draft.is_complete(), "empty name: should not be complete");
 
         draft.new_name = "Alice".to_string();
-        assert!(draft.is_complete(), "both fields filled: should be complete");
+        assert!(
+            draft.is_complete(),
+            "both fields filled: should be complete"
+        );
     }
 
     #[test]
@@ -295,14 +306,21 @@ mod tests {
             remote_name: Some("origin".to_string()),
         };
         let op = PendingOp::Rename {
-            source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            source: AuthorIdentity {
+                name: "Alice".into(),
+                email: "alice@x".into(),
+                commit_count: 1,
+            },
             new_name: "Bob".into(),
             new_email: "bob@x".into(),
         };
         let screen = Screen::Preview { op, scan };
         match screen {
             Screen::Preview { op: _, scan } => {
-                assert_eq!(scan.affected_count, 5, "scan.affected_count must be accessible via struct variant");
+                assert_eq!(
+                    scan.affected_count, 5,
+                    "scan.affected_count must be accessible via struct variant"
+                );
             }
             _ => panic!("expected Preview"),
         }
@@ -321,17 +339,33 @@ mod tests {
     #[test]
     fn test_screen_success_remote_name_optional() {
         // Plan 03-05 Task 1: Screen::Success with rewritten count + optional remote_name.
-        let s1 = Screen::Success { rewritten: 3, remote_name: None, copied: false };
-        let s2 = Screen::Success { rewritten: 7, remote_name: Some("origin".to_string()), copied: false };
+        let s1 = Screen::Success {
+            rewritten: 3,
+            remote_name: None,
+            copied: false,
+        };
+        let s2 = Screen::Success {
+            rewritten: 7,
+            remote_name: Some("origin".to_string()),
+            copied: false,
+        };
         match s1 {
-            Screen::Success { rewritten, remote_name, .. } => {
+            Screen::Success {
+                rewritten,
+                remote_name,
+                ..
+            } => {
                 assert_eq!(rewritten, 3);
                 assert!(remote_name.is_none());
             }
             _ => panic!("expected Success"),
         }
         match s2 {
-            Screen::Success { rewritten, remote_name, .. } => {
+            Screen::Success {
+                rewritten,
+                remote_name,
+                ..
+            } => {
                 assert_eq!(rewritten, 7);
                 assert_eq!(remote_name.as_deref(), Some("origin"));
             }

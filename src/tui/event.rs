@@ -1,4 +1,7 @@
-use crate::tui::app::{apply_coauthor_filter, apply_filter, build_author_nucleo, build_coauthor_nucleo, App, FormField, PendingOp, RenameDraft, Screen};
+use crate::tui::app::{
+    apply_coauthor_filter, apply_filter, build_author_nucleo, build_coauthor_nucleo, App,
+    FormField, PendingOp, RenameDraft, Screen,
+};
 use crossterm::event::KeyCode;
 
 fn base64_encode(input: &[u8]) -> String {
@@ -10,8 +13,16 @@ fn base64_encode(input: &[u8]) -> String {
         let b2 = *chunk.get(2).unwrap_or(&0) as usize;
         out.push(T[b0 >> 2] as char);
         out.push(T[((b0 & 3) << 4) | (b1 >> 4)] as char);
-        out.push(if chunk.len() > 1 { T[((b1 & 15) << 2) | (b2 >> 6)] as char } else { '=' });
-        out.push(if chunk.len() > 2 { T[b2 & 63] as char } else { '=' });
+        out.push(if chunk.len() > 1 {
+            T[((b1 & 15) << 2) | (b2 >> 6)] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            T[b2 & 63] as char
+        } else {
+            '='
+        });
     }
     out
 }
@@ -151,22 +162,28 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             match key {
                 KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
                     let result = match &op_clone {
-                        PendingOp::Rename { source, new_name, new_email } => {
-                            crate::git::rewrite::rewrite_author(
-                                &app.repo,
-                                &source.name,
-                                &source.email,
-                                new_name,
-                                new_email,
-                            )
-                        }
+                        PendingOp::Rename {
+                            source,
+                            new_name,
+                            new_email,
+                        } => crate::git::rewrite::rewrite_author(
+                            &app.repo,
+                            &source.name,
+                            &source.email,
+                            new_name,
+                            new_email,
+                        ),
                         PendingOp::Drop { target } => {
                             crate::git::rewrite::drop_coauthor(&app.repo, &target.email)
                         }
                     };
                     match result {
                         Ok(rewritten) => {
-                            app.screen = Screen::Success { rewritten, remote_name, copied: false };
+                            app.screen = Screen::Success {
+                                rewritten,
+                                remote_name,
+                                copied: false,
+                            };
                         }
                         Err(e) => app.screen = Screen::Err(e.to_string()),
                     }
@@ -215,7 +232,11 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             _ => {}
         },
-        Screen::Success { remote_name, copied, .. } => match key {
+        Screen::Success {
+            remote_name,
+            copied,
+            ..
+        } => match key {
             KeyCode::Char('c') => {
                 let remote = remote_name.as_deref().unwrap_or("<remote>");
                 copy_via_osc52(&format!("git push --force-with-lease --all {}", remote));
@@ -253,7 +274,8 @@ mod tests {
         };
         {
             let tree = repo.find_tree(tree_oid).unwrap();
-            repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[]).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
+                .unwrap();
         } // drop tree borrow before moving repo
         (dir, App::new(repo))
     }
@@ -354,9 +376,17 @@ mod tests {
         app.screen = make_author_list_screen(&["Alice", "Bob"]);
         handle_key(&mut app, KeyCode::Char('a'));
         match &app.screen {
-            Screen::AuthorList { filter, matched, selected, .. } => {
+            Screen::AuthorList {
+                filter,
+                matched,
+                selected,
+                ..
+            } => {
                 assert_eq!(filter, "a");
-                assert!(matched.iter().any(|m| m.name == "Alice"), "Alice should match 'a'");
+                assert!(
+                    matched.iter().any(|m| m.name == "Alice"),
+                    "Alice should match 'a'"
+                );
                 assert_eq!(*selected, 0, "selection resets on filter change");
             }
             _ => panic!("expected AuthorList"),
@@ -422,7 +452,11 @@ mod tests {
         // RENAME-02: Tab switches focus between Name and Email fields.
         let (_dir, mut app) = make_test_app();
         app.screen = Screen::RenameForm {
-            source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            source: AuthorIdentity {
+                name: "Alice".into(),
+                email: "alice@x".into(),
+                commit_count: 1,
+            },
             draft: RenameDraft::default(),
         };
         handle_key(&mut app, KeyCode::Tab);
@@ -442,7 +476,11 @@ mod tests {
         // RENAME-02: typing a char appends to the currently focused field.
         let (_dir, mut app) = make_test_app();
         app.screen = Screen::RenameForm {
-            source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            source: AuthorIdentity {
+                name: "Alice".into(),
+                email: "alice@x".into(),
+                commit_count: 1,
+            },
             draft: RenameDraft::default(),
         };
         handle_key(&mut app, KeyCode::Char('A'));
@@ -456,11 +494,17 @@ mod tests {
     fn test_rename_form_backspace_pops_focused_field() {
         // RENAME-02: Backspace removes the last character from the focused field.
         let (_dir, mut app) = make_test_app();
-        let mut draft = RenameDraft::default();
-        draft.focused = FormField::Email;
-        draft.new_email = "alice@x".to_string();
+        let draft = RenameDraft {
+            focused: FormField::Email,
+            new_email: "alice@x".to_string(),
+            ..RenameDraft::default()
+        };
         app.screen = Screen::RenameForm {
-            source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            source: AuthorIdentity {
+                name: "Alice".into(),
+                email: "alice@x".into(),
+                commit_count: 1,
+            },
             draft,
         };
         handle_key(&mut app, KeyCode::Backspace);
@@ -475,7 +519,11 @@ mod tests {
         // RENAME-02: Enter with empty name does not transition.
         let (_dir, mut app) = make_test_app();
         app.screen = Screen::RenameForm {
-            source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            source: AuthorIdentity {
+                name: "Alice".into(),
+                email: "alice@x".into(),
+                commit_count: 1,
+            },
             draft: RenameDraft::default(), // both fields empty
         };
         handle_key(&mut app, KeyCode::Enter);
@@ -487,15 +535,27 @@ mod tests {
         // RENAME-05: Enter with both fields filled transitions to Preview with scan data.
         // Uses a bare repo so scan_rename returns Ok(RewritePreview { affected_count: 0, .. }).
         let (_dir, mut app) = make_test_app();
-        let mut draft = RenameDraft::default();
-        draft.new_name = "Bob".to_string();
-        draft.new_email = "bob@example.com".to_string();
+        let draft = RenameDraft {
+            new_name: "Bob".to_string(),
+            new_email: "bob@example.com".to_string(),
+            ..RenameDraft::default()
+        };
         app.screen = Screen::RenameForm {
-            source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            source: AuthorIdentity {
+                name: "Alice".into(),
+                email: "alice@x".into(),
+                commit_count: 1,
+            },
             draft,
         };
         handle_key(&mut app, KeyCode::Enter);
-        assert!(matches!(app.screen, Screen::Preview { op: PendingOp::Rename { .. }, .. }));
+        assert!(matches!(
+            app.screen,
+            Screen::Preview {
+                op: PendingOp::Rename { .. },
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -503,7 +563,11 @@ mod tests {
         // v1: no back-stack — Esc from RenameForm goes to MainMenu (not AuthorList).
         let (_dir, mut app) = make_test_app();
         app.screen = Screen::RenameForm {
-            source: AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            source: AuthorIdentity {
+                name: "Alice".into(),
+                email: "alice@x".into(),
+                commit_count: 1,
+            },
             draft: RenameDraft::default(),
         };
         handle_key(&mut app, KeyCode::Esc);
@@ -574,9 +638,17 @@ mod tests {
         app.screen = make_coauthor_list_screen(&[("Alice", "alice@x"), ("Bob", "bob@x")]);
         handle_key(&mut app, KeyCode::Char('b'));
         match &app.screen {
-            Screen::CoAuthorList { filter, matched, selected, .. } => {
+            Screen::CoAuthorList {
+                filter,
+                matched,
+                selected,
+                ..
+            } => {
                 assert_eq!(filter, "b");
-                assert!(matched.iter().any(|m| m.name == "Bob"), "Bob should match 'b'");
+                assert!(
+                    matched.iter().any(|m| m.name == "Bob"),
+                    "Bob should match 'b'"
+                );
                 assert_eq!(*selected, 0, "selection resets on filter change");
             }
             _ => panic!("expected CoAuthorList"),
@@ -591,7 +663,10 @@ mod tests {
         app.screen = make_coauthor_list_screen(&[("Bob", "bob@x")]);
         handle_key(&mut app, KeyCode::Enter);
         match &app.screen {
-            Screen::Preview { op: PendingOp::Drop { target }, .. } => {
+            Screen::Preview {
+                op: PendingOp::Drop { target },
+                ..
+            } => {
                 assert_eq!(target.name, "Bob");
                 assert_eq!(target.email, "bob@x");
             }
@@ -638,12 +713,19 @@ mod tests {
         handle_key(&mut app, KeyCode::Enter);
         // Should be in Preview with real scan data
         match &app.screen {
-            Screen::Preview { op: PendingOp::Rename { source, .. }, scan } => {
+            Screen::Preview {
+                op: PendingOp::Rename { source, .. },
+                scan,
+            } => {
                 assert_eq!(source.name, "Alice");
                 // scan_rename returns a real RewritePreview (affected_count >= 1 for one-commit repo)
-                assert!(scan.affected_count >= 1, "scan.affected_count must reflect actual commits");
+                assert!(
+                    scan.affected_count >= 1,
+                    "scan.affected_count must reflect actual commits"
+                );
             }
-            _ => panic!("expected Preview {{ op: Rename, scan }}, got: {:?}",
+            _ => panic!(
+                "expected Preview {{ op: Rename, scan }}, got: {:?}",
                 match &app.screen {
                     Screen::MainMenu { .. } => "MainMenu",
                     Screen::AuthorList { .. } => "AuthorList",
@@ -652,7 +734,8 @@ mod tests {
                     Screen::CoAuthorList { .. } => "CoAuthorList",
                     Screen::Success { .. } => "Success",
                     Screen::Err(_) => "Err",
-                }),
+                }
+            ),
         }
     }
 
@@ -667,10 +750,16 @@ mod tests {
         // Press Enter to select Bob
         handle_key(&mut app, KeyCode::Enter);
         match &app.screen {
-            Screen::Preview { op: PendingOp::Drop { target }, scan } => {
+            Screen::Preview {
+                op: PendingOp::Drop { target },
+                scan,
+            } => {
                 assert_eq!(target.name, "Bob");
                 // The commit has a Co-authored-by Bob trailer, so affected_count >= 1
-                assert!(scan.affected_count >= 1, "scan.affected_count must reflect actual commits");
+                assert!(
+                    scan.affected_count >= 1,
+                    "scan.affected_count must reflect actual commits"
+                );
             }
             _ => panic!("expected Preview {{ op: Drop, scan }}"),
         }
@@ -690,7 +779,11 @@ mod tests {
             remote_name: None,
         };
         let op = PendingOp::Rename {
-            source: AuthorIdentity { name: "Nobody".into(), email: "nobody@x".into(), commit_count: 0 },
+            source: AuthorIdentity {
+                name: "Nobody".into(),
+                email: "nobody@x".into(),
+                commit_count: 0,
+            },
             new_name: "Someone".into(),
             new_email: "someone@x".into(),
         };
@@ -710,15 +803,25 @@ mod tests {
         // Go through the full flow to get a real Preview with real scan data
         handle_key(&mut app, KeyCode::Enter); // -> AuthorList
         handle_key(&mut app, KeyCode::Enter); // select Alice -> RenameForm
-        for c in "Alice2".chars() { handle_key(&mut app, KeyCode::Char(c)); }
+        for c in "Alice2".chars() {
+            handle_key(&mut app, KeyCode::Char(c));
+        }
         handle_key(&mut app, KeyCode::Tab);
-        for c in "alice2@example.com".chars() { handle_key(&mut app, KeyCode::Char(c)); }
+        for c in "alice2@example.com".chars() {
+            handle_key(&mut app, KeyCode::Char(c));
+        }
         handle_key(&mut app, KeyCode::Enter); // -> Preview
-        assert!(matches!(app.screen, Screen::Preview { .. }), "should be at Preview before Y");
+        assert!(
+            matches!(app.screen, Screen::Preview { .. }),
+            "should be at Preview before Y"
+        );
         handle_key(&mut app, KeyCode::Char('y')); // execute rewrite
         match &app.screen {
             Screen::Success { rewritten, .. } => {
-                assert!(*rewritten >= 1, "rewrite_author should have written >= 1 commit");
+                assert!(
+                    *rewritten >= 1,
+                    "rewrite_author should have written >= 1 commit"
+                );
             }
             Screen::Err(e) => panic!("rewrite failed: {}", e),
             _ => panic!("expected Success after Y on Preview"),
@@ -732,11 +835,17 @@ mod tests {
         handle_key(&mut app, KeyCode::Down); // select Drop
         handle_key(&mut app, KeyCode::Enter); // -> CoAuthorList
         handle_key(&mut app, KeyCode::Enter); // select Bob -> Preview
-        assert!(matches!(app.screen, Screen::Preview { .. }), "should be at Preview before Y");
+        assert!(
+            matches!(app.screen, Screen::Preview { .. }),
+            "should be at Preview before Y"
+        );
         handle_key(&mut app, KeyCode::Char('y')); // execute drop
         match &app.screen {
             Screen::Success { rewritten, .. } => {
-                assert!(*rewritten >= 1, "drop_coauthor should have written >= 1 commit");
+                assert!(
+                    *rewritten >= 1,
+                    "drop_coauthor should have written >= 1 commit"
+                );
             }
             Screen::Err(e) => panic!("drop failed: {}", e),
             _ => panic!("expected Success after Y on Preview"),
@@ -758,7 +867,9 @@ mod tests {
         app.screen = Screen::Preview {
             op: PendingOp::Drop {
                 target: crate::git::types::CoAuthorEntry {
-                    name: "x".into(), email: "x@x".into(), commit_count: 0,
+                    name: "x".into(),
+                    email: "x@x".into(),
+                    commit_count: 0,
                 },
             },
             scan,
@@ -773,13 +884,18 @@ mod tests {
         let (_dir, mut app) = make_test_app();
         use crate::git::scan::RewritePreview;
         let scan = RewritePreview {
-            affected_count: 0, signed_commit_count: 0,
-            annotated_tags_affected: vec![], has_notes_ref: false, remote_name: None,
+            affected_count: 0,
+            signed_commit_count: 0,
+            annotated_tags_affected: vec![],
+            has_notes_ref: false,
+            remote_name: None,
         };
         app.screen = Screen::Preview {
             op: PendingOp::Drop {
                 target: crate::git::types::CoAuthorEntry {
-                    name: "x".into(), email: "x@x".into(), commit_count: 0,
+                    name: "x".into(),
+                    email: "x@x".into(),
+                    commit_count: 0,
                 },
             },
             scan,
@@ -794,13 +910,18 @@ mod tests {
         let (_dir, mut app) = make_test_app();
         use crate::git::scan::RewritePreview;
         let scan = RewritePreview {
-            affected_count: 0, signed_commit_count: 0,
-            annotated_tags_affected: vec![], has_notes_ref: false, remote_name: None,
+            affected_count: 0,
+            signed_commit_count: 0,
+            annotated_tags_affected: vec![],
+            has_notes_ref: false,
+            remote_name: None,
         };
         app.screen = Screen::Preview {
             op: PendingOp::Drop {
                 target: crate::git::types::CoAuthorEntry {
-                    name: "x".into(), email: "x@x".into(), commit_count: 0,
+                    name: "x".into(),
+                    email: "x@x".into(),
+                    commit_count: 0,
                 },
             },
             scan,
@@ -813,7 +934,11 @@ mod tests {
     fn test_success_any_key_exits() {
         // Any key on Success causes should_exit = true (OUT-01: exit after rewrite).
         let (_dir, mut app) = make_test_app();
-        app.screen = Screen::Success { rewritten: 5, remote_name: Some("origin".into()), copied: false };
+        app.screen = Screen::Success {
+            rewritten: 5,
+            remote_name: Some("origin".into()),
+            copied: false,
+        };
         handle_key(&mut app, KeyCode::Enter);
         assert!(app.should_exit);
     }
