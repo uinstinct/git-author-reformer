@@ -1,6 +1,6 @@
 use crate::tui::app::{
     apply_coauthor_filter, apply_filter, build_author_nucleo, build_coauthor_nucleo, App,
-    FormField, PendingOp, RenameDraft, Screen,
+    FormField, MenuChoice, PendingOp, RenameDraft, Screen,
 };
 use crossterm::event::KeyCode;
 
@@ -37,60 +37,70 @@ fn copy_via_osc52(text: &str) {
 pub fn handle_key(app: &mut App, key: KeyCode) {
     match &mut app.screen {
         Screen::MainMenu { selected } => match key {
-            KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1) % 2,
-            KeyCode::Up | KeyCode::Char('k') => *selected = (*selected + 2 - 1) % 2,
+            KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1) % 4,
+            KeyCode::Up | KeyCode::Char('k') => *selected = (*selected + 4 - 1) % 4,
             KeyCode::Enter => {
-                if *selected == 0 {
-                    // Rename — preflight then load authors
-                    if let Err(e) = crate::git::preflight::check_stash(&app.repo) {
-                        app.screen = Screen::Err(e.to_string());
-                        return;
-                    }
-                    if let Err(e) = crate::git::preflight::check_worktrees(&app.repo) {
-                        app.screen = Screen::Err(e.to_string());
-                        return;
-                    }
-                    match crate::git::reader::enumerate_authors(&app.repo) {
-                        Ok(items) => {
-                            let mut nucleo = build_author_nucleo(&items);
-                            let matched = apply_filter(&mut nucleo, "");
-                            app.screen = Screen::AuthorList {
-                                items,
-                                filter: String::new(),
-                                matched,
-                                nucleo,
-                                selected: 0,
-                            };
-                        }
-                        Err(e) => {
+                let sel = *selected;
+                match MenuChoice::from_index(sel) {
+                    MenuChoice::Rename => {
+                        // Rename — preflight then load authors
+                        if let Err(e) = crate::git::preflight::check_stash(&app.repo) {
                             app.screen = Screen::Err(e.to_string());
+                            return;
                         }
-                    }
-                } else {
-                    // Drop — preflight then load co-authors
-                    if let Err(e) = crate::git::preflight::check_stash(&app.repo) {
-                        app.screen = Screen::Err(e.to_string());
-                        return;
-                    }
-                    if let Err(e) = crate::git::preflight::check_worktrees(&app.repo) {
-                        app.screen = Screen::Err(e.to_string());
-                        return;
-                    }
-                    match crate::git::reader::enumerate_coauthors(&app.repo) {
-                        Ok(items) => {
-                            let mut nucleo = build_coauthor_nucleo(&items);
-                            let matched = apply_coauthor_filter(&mut nucleo, "");
-                            app.screen = Screen::CoAuthorList {
-                                items,
-                                filter: String::new(),
-                                matched,
-                                nucleo,
-                                selected: 0,
-                            };
-                        }
-                        Err(e) => {
+                        if let Err(e) = crate::git::preflight::check_worktrees(&app.repo) {
                             app.screen = Screen::Err(e.to_string());
+                            return;
                         }
+                        match crate::git::reader::enumerate_authors(&app.repo) {
+                            Ok(items) => {
+                                let mut nucleo = build_author_nucleo(&items);
+                                let matched = apply_filter(&mut nucleo, "");
+                                app.screen = Screen::AuthorList {
+                                    items,
+                                    filter: String::new(),
+                                    matched,
+                                    nucleo,
+                                    selected: 0,
+                                };
+                            }
+                            Err(e) => {
+                                app.screen = Screen::Err(e.to_string());
+                            }
+                        }
+                    }
+                    MenuChoice::Drop => {
+                        // Drop — preflight then load co-authors
+                        if let Err(e) = crate::git::preflight::check_stash(&app.repo) {
+                            app.screen = Screen::Err(e.to_string());
+                            return;
+                        }
+                        if let Err(e) = crate::git::preflight::check_worktrees(&app.repo) {
+                            app.screen = Screen::Err(e.to_string());
+                            return;
+                        }
+                        match crate::git::reader::enumerate_coauthors(&app.repo) {
+                            Ok(items) => {
+                                let mut nucleo = build_coauthor_nucleo(&items);
+                                let matched = apply_coauthor_filter(&mut nucleo, "");
+                                app.screen = Screen::CoAuthorList {
+                                    items,
+                                    filter: String::new(),
+                                    matched,
+                                    nucleo,
+                                    selected: 0,
+                                };
+                            }
+                            Err(e) => {
+                                app.screen = Screen::Err(e.to_string());
+                            }
+                        }
+                    }
+                    MenuChoice::AddHook => {
+                        app.screen = Screen::Err("not yet implemented".into());
+                    }
+                    MenuChoice::ManageHook => {
+                        app.screen = Screen::Err("not yet implemented".into());
                     }
                 }
             }
@@ -260,6 +270,10 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             _ => app.should_exit = true,
         },
+        Screen::HookAddList { .. } => {}
+        Screen::HookManageList { .. } => {}
+        Screen::HookSuccess { .. } => {}
+        Screen::HookAlreadyStripped { .. } => {}
         Screen::Err(_) => {
             app.should_exit = true;
         }
@@ -319,23 +333,27 @@ mod tests {
     // ---- Existing tests from Plan 03-02 (kept intact) ----
 
     #[test]
-    fn test_main_menu_down_increments_selected_mod_2() {
-        // CORE-01: keyboard navigation must cycle the two options.
+    fn test_main_menu_down_increments_selected() {
+        // CORE-01: keyboard navigation must cycle four options; Down from 3 wraps to 0.
         let (_dir, mut app) = make_test_app();
         handle_key(&mut app, KeyCode::Down);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 1 }));
+        handle_key(&mut app, KeyCode::Down);
+        assert!(matches!(app.screen, Screen::MainMenu { selected: 2 }));
+        handle_key(&mut app, KeyCode::Down);
+        assert!(matches!(app.screen, Screen::MainMenu { selected: 3 }));
         handle_key(&mut app, KeyCode::Down);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
     #[test]
     fn test_main_menu_up_decrements_with_wrap() {
-        // CORE-01: up arrow wraps the two-option list.
+        // CORE-01: up arrow wraps the four-option list; Up from 0 wraps to 3.
         let (_dir, mut app) = make_test_app();
         handle_key(&mut app, KeyCode::Up);
-        assert!(matches!(app.screen, Screen::MainMenu { selected: 1 }));
+        assert!(matches!(app.screen, Screen::MainMenu { selected: 3 }));
         handle_key(&mut app, KeyCode::Up);
-        assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
+        assert!(matches!(app.screen, Screen::MainMenu { selected: 2 }));
     }
 
     #[test]
@@ -346,6 +364,13 @@ mod tests {
         assert!(matches!(app.screen, Screen::MainMenu { selected: 1 }));
         handle_key(&mut app, KeyCode::Char('k'));
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
+    }
+
+    #[test]
+    fn test_main_menu_shows_four_options() {
+        // HOOK-01/HOOK-02: main menu must offer four choices.
+        use crate::tui::app::MenuChoice;
+        assert_eq!(MenuChoice::all().len(), 4);
     }
 
     #[test]
@@ -807,6 +832,10 @@ mod tests {
                     Screen::Preview { .. } => "Preview",
                     Screen::CoAuthorList { .. } => "CoAuthorList",
                     Screen::Success { .. } => "Success",
+                    Screen::HookAddList { .. } => "HookAddList",
+                    Screen::HookManageList { .. } => "HookManageList",
+                    Screen::HookSuccess { .. } => "HookSuccess",
+                    Screen::HookAlreadyStripped { .. } => "HookAlreadyStripped",
                     Screen::Err(_) => "Err",
                 }
             ),
