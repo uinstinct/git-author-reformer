@@ -1188,9 +1188,9 @@ mod tests {
                         "strip list must contain bob@example.com"
                     );
                 }
-                other => panic!("expected HookState::Managed, got other variant"),
+                _ => panic!("expected HookState::Managed, got other variant"),
             },
-            other => panic!("expected HookSuccess, got different screen"),
+            _ => panic!("expected HookSuccess, got different screen"),
         }
     }
 
@@ -1211,7 +1211,7 @@ mod tests {
             Screen::HookAlreadyStripped { email } => {
                 assert_eq!(email, "bob@example.com");
             }
-            other => panic!("expected HookAlreadyStripped, got different screen"),
+            _ => panic!("expected HookAlreadyStripped, got different screen"),
         }
     }
 
