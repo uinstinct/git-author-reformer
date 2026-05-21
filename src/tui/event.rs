@@ -574,6 +574,64 @@ mod tests {
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
+    // ---- Tests for Plan 06-01 (HOOK-12 preflight move) ----
+
+    /// Creates a non-bare repo with one commit and a fake refs/stash reference so
+    /// check_stash returns Err. The OID pointed at by the ref does not matter.
+    fn make_test_app_with_stash() -> (TempDir, App) {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        let sig = git2::Signature::now("Alice", "alice@example.com").unwrap();
+        let tree_oid = {
+            let tb = repo.treebuilder(None).unwrap();
+            tb.write().unwrap()
+        };
+        let head_oid = {
+            let tree = repo.find_tree(tree_oid).unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
+                .unwrap()
+        };
+        // Create fake stash ref pointing at the commit OID.
+        repo.reference("refs/stash", head_oid, false, "stash")
+            .unwrap();
+        (dir, App::new(repo))
+    }
+
+    #[test]
+    fn test_rename_with_stash_repo_hits_preflight_err() {
+        // HOOK-12: Rename flow must call check_stash; stash repo must land on Screen::Err.
+        let (_dir, mut app) = make_test_app_with_stash();
+        // selected 0 = Rename; no navigation needed
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(app.screen, Screen::Err(_)),
+            "expected Screen::Err for Rename on stash repo, got something else"
+        );
+    }
+
+    #[test]
+    fn test_drop_with_stash_repo_hits_preflight_err() {
+        // HOOK-12: Drop flow must call check_stash; stash repo must land on Screen::Err.
+        let (_dir, mut app) = make_test_app_with_stash();
+        handle_key(&mut app, KeyCode::Down); // select Drop (index 1)
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(app.screen, Screen::Err(_)),
+            "expected Screen::Err for Drop on stash repo, got something else"
+        );
+    }
+
+    #[test]
+    fn test_rename_without_stash_repo_loads_author_list() {
+        // HOOK-12 regression: clean repo (no stash) still reaches AuthorList on Rename.
+        let (_dir, mut app) = make_test_app_with_commits();
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(app.screen, Screen::AuthorList { .. }),
+            "expected AuthorList for Rename on clean repo"
+        );
+    }
+
     // ---- New tests for Plan 03-04 (DROP-01) ----
 
     /// Creates a non-bare repo with one commit that has a Co-authored-by trailer.
