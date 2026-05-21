@@ -64,3 +64,19 @@ pub fn create_annotated_tag(repo: &Repository, name: &str, target: &git2::Commit
     repo.tag(name, target.as_object(), &tagger, message, false)
         .unwrap();
 }
+
+/// Runs the generated commit-msg hook against `input_msg` and returns the
+/// resulting filtered message. Verifies HOOK-08 by exercising the actual
+/// shell script. Asserts the script exits 0.
+pub fn run_hook_on_message(hook_path: &std::path::Path, input_msg: &str) -> String {
+    let dir = tempfile::TempDir::new().unwrap();
+    let msg_file = dir.path().join("MSG");
+    std::fs::write(&msg_file, input_msg).unwrap();
+    let status = std::process::Command::new("/bin/sh")
+        .arg(hook_path)
+        .arg(&msg_file)
+        .status()
+        .unwrap();
+    assert!(status.success(), "hook script must exit 0");
+    std::fs::read_to_string(&msg_file).unwrap()
+}
