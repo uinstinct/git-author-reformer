@@ -1,5 +1,48 @@
 //! Hook file parser: marker detection and strip-list extraction.
-//! Implemented in Plan 02.
+//! Shared marker constants are `pub(crate)` so `render.rs` (Plan 03) reuses them.
+
+/// Sentinel marking the start of the tool-managed strip region.
+pub(crate) const BEGIN_MARKER: &str = "# >>> git-author-reformer auto-strip BEGIN >>>";
+
+/// Sentinel marking the end of the tool-managed strip region.
+pub(crate) const END_MARKER: &str = "# <<< git-author-reformer auto-strip END <<<";
+
+/// Returns the byte offsets `(begin, end)` where `begin` is the start of the
+/// `BEGIN_MARKER` line and `end` is the start of the `END_MARKER` line.
+///
+/// Returns `None` when either marker is absent or END comes before BEGIN.
+pub(crate) fn detect_markers(contents: &str) -> Option<(usize, usize)> {
+    let begin = contents.find(BEGIN_MARKER)?;
+    let end = contents.find(END_MARKER)?;
+    if end <= begin {
+        return None;
+    }
+    Some((begin, end))
+}
+
+/// Given hook-file contents known to contain both markers, returns the list of
+/// emails between them. Strips the leading `# ` prefix from each line. Skips
+/// blank lines. Preserves casing as written (lowercasing is the renderer's job).
+pub(crate) fn extract_strip_list(contents: &str) -> Vec<String> {
+    let Some((begin, end)) = detect_markers(contents) else {
+        return vec![];
+    };
+    // Slice from start of BEGIN marker to start of END marker.
+    let region = &contents[begin..end];
+    region
+        .lines()
+        .skip(1) // skip the BEGIN_MARKER line itself
+        .filter_map(|line| {
+            let stripped = line.strip_prefix("# ")?;
+            let trimmed = stripped.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .collect()
+}
 
 #[cfg(test)]
 mod tests {
