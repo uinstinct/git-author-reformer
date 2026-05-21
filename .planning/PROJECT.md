@@ -1,14 +1,12 @@
 # git-author-reformer
 
-## Current Milestone: v1.1 Auto-Strip Co-Author Hook
+## Current State
 
-**Goal:** Extend the TUI with a third capability — install a `commit-msg` git hook that automatically strips selected co-authors from every future commit in the repo.
+**Shipped: v1.1 (2026-05-21) — Auto-Strip Co-Author Hook.** Tool now has 4 main-menu flows: Rename author, Drop co-author, Add auto-strip hook, Manage auto-strip hook.
 
-**Target features:**
-- New main-menu option to install/extend an auto-strip hook for a selected co-author
-- New main-menu option to view and remove configured strip entries; hook auto-deletes when list is empty
-- Append-to-list semantics with display of currently-stripped emails before each add
-- Refuse-to-overwrite safety on pre-existing non-tool-written hooks
+## Next Milestone Goals
+
+TBD — run `/gsd:new-milestone` to start v1.2 planning.
 
 ## What This Is
 
@@ -20,17 +18,13 @@ Any developer can clean up git author history in seconds — no Python, no git f
 
 ## Requirements
 
-### Validated
+### Validated (v1.1 — shipped 2026-05-21)
 
-(None yet — ship to validate)
-
-### Active
-
-- [ ] TUI gains a third operation: "Add co-author auto-strip hook" — pick from existing co-authors, install/extend `.git/hooks/commit-msg` that strips that email from future commits
-- [ ] TUI gains a fourth operation: "Manage auto-strip hook" — view configured strip entries, remove individual entries, hook file auto-deleted when last entry removed
-- [ ] commit-msg hook edits the message file in place using the same case-insensitive `Co-authored-by:` parsing as the existing drop flow — no SHA churn, no force-push needed
-- [ ] Hook ownership detection via marker comment at top of file; refuse to overwrite any pre-existing non-tool-written hook
-- [ ] Strip list stored inline in the hook file between markers — self-contained, no extra config files
+- [x] TUI gains a third operation: "Add co-author auto-strip hook" — pick from existing co-authors, install/extend `.git/hooks/commit-msg` that strips that email from future commits
+- [x] TUI gains a fourth operation: "Manage auto-strip hook" — view configured strip entries, remove individual entries, hook file auto-deleted when last entry removed
+- [x] commit-msg hook edits the message file in place using the same case-insensitive `Co-authored-by:` parsing as the existing drop flow — no SHA churn, no force-push needed
+- [x] Hook ownership detection via marker comment at top of file; refuse to overwrite any pre-existing non-tool-written hook
+- [x] Strip list stored inline in the hook file between markers — self-contained, no extra config files
 
 ### Validated (v1.0 — shipped 2026-05-20)
 
@@ -81,13 +75,13 @@ Any developer can clean up git author history in seconds — no Python, no git f
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| git2 crate over raw .git/ parsing | Raw pack file parsing = weeks of complexity; git2 is battle-tested and purpose-built | — Pending |
-| Warn + confirm only (no backup refs) | Simpler UX; user asked for this explicitly | — Pending |
-| Name + Email pair for author identity | Prevents accidental merging of distinct identities who share a name | — Pending |
-| Rewrite all branches, not just HEAD | Incomplete rewrites leave ghost author in other branches | — Pending |
-| Use `commit-msg` hook (not `post-commit`) for auto-strip | `commit-msg` edits the message before the commit object is created — no SHA churn, no force-push needed | — Pending |
-| Store strip list inline in hook file between markers | Self-contained; no extra config files; survives backup/restore of `.git/hooks/` | — Pending |
-| Refuse to overwrite pre-existing non-tool hook | Safer than merge-on-the-fly; user explicitly removes their hook before installing ours | — Pending |
+| git2 crate over raw .git/ parsing | Raw pack file parsing = weeks of complexity; git2 is battle-tested and purpose-built | Validated (v1.0) |
+| Warn + confirm only (no backup refs) | Simpler UX; user asked for this explicitly | Validated (v1.0) |
+| Name + Email pair for author identity | Prevents accidental merging of distinct identities who share a name | Validated (v1.0) |
+| Rewrite all branches, not just HEAD | Incomplete rewrites leave ghost author in other branches | Validated (v1.0) |
+| Use `commit-msg` hook (not `post-commit`) for auto-strip | `commit-msg` edits the message before the commit object is created — no SHA churn, no force-push needed | Validated (v1.1) |
+| Store strip list inline in hook file between markers | Self-contained; no extra config files; survives backup/restore of `.git/hooks/` | Validated (v1.1) |
+| Refuse to overwrite pre-existing non-tool hook | Safer than merge-on-the-fly; user explicitly removes their hook before installing ours | Validated (v1.1) |
 
 ## Evolution
 
@@ -107,4 +101,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-21 after starting milestone v1.1*
+*Last updated: 2026-05-21 after shipping milestone v1.1*
