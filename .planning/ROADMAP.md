@@ -68,7 +68,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 5 plans
 - [x] 06-01-PLAN.md — TDD: Move preflight from main.rs into event.rs Rename/Drop branches (HOOK-12 structural fix)
 - [x] 06-02-PLAN.md — Extend MenuChoice (4 options), add 4 Screen variants + stubs, fix modulus (HOOK-01, HOOK-02)
-- [ ] 06-03-PLAN.md — TDD: Add flow — HookAddList, install_strip wiring, HookSuccess, HookAlreadyStripped (HOOK-03, HOOK-11)
+- [x] 06-03-PLAN.md — TDD: Add flow — HookAddList, install_strip wiring, HookSuccess, HookAlreadyStripped (HOOK-03, HOOK-11)
 - [ ] 06-04-PLAN.md — TDD: Manage flow — HookManageList, remove_strip wiring, empty state (HOOK-02, HOOK-09, HOOK-11)
 - [ ] 06-05-PLAN.md — HOOK-14 stash-bypass tests + final phase gate (clippy/fmt) (HOOK-14)
 **Key constraints**:
@@ -89,4 +89,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
 | 4. CI + Distribution | 2/2 | Complete   | 2026-05-20 |
 | 5. Hook Engine | 5/5 | Complete   | 2026-05-21 |
-| 6. Hook TUI Integration | 2/5 | In Progress|  |
+| 6. Hook TUI Integration | 3/5 | In Progress|  |
