@@ -90,8 +90,8 @@ Fixed two pre-existing blocking issues (Rule 3) required for the clippy gate:
 
 | Hash | Message |
 |------|---------|
-| 3b78e2c | `test(05-05): add integration tests for hook engine (HOOK-04/05/06/07/08/10/12/13)` |
-| 185f41d | `feat(05-05): green hook-engine integration tests (HOOK-04/05/06/07/08/10/12/13)` |
+| 3b78e2c | `test(05-05): add integration tests for hook engine (HOOK-04/05/06/07/08/10/12/13)` — tests pass on first run because Plan 04 had already implemented the engine (TDD RED phase degenerate) |
+| a554fca | `chore: cargo fmt + clippy on pre-existing TUI and hook code` — out-of-scope cleanup, split from the original misnamed `feat(05-05)` commit per CLAUDE.md Rule 3 |
 
 ## Verification
 
@@ -115,5 +115,5 @@ None — integration tests are test-only code; no new production API surface int
 - `tests/hook_test.rs` exists: FOUND
 - `tests/common/mod.rs` contains `run_hook_on_message`: FOUND
 - Commit 3b78e2c exists: VERIFIED
-- Commit 185f41d exists: VERIFIED
+- Commit a554fca exists (chore split from original misnamed feat-commit): VERIFIED
 - 132 tests pass: VERIFIED
