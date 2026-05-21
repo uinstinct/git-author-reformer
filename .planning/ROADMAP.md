@@ -66,7 +66,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Neither Add nor Manage triggers the stash/worktree pre-flight blockers — both flows reach their selectors on a repo with stash entries
   6. Automated TUI/state-machine tests cover every user path: main menu routes each of the four options, Add happy path → success screen, Add duplicate → already-stripped screen, Manage empty state, Manage remove single → updated list, Manage remove last → "hook removed" screen, and a regression test verifies Add/Manage on a repo with stash entries does NOT hit the SAFE-01/SAFE-02 preflight
 **Plans**: 5 plans
-- [ ] 06-01-PLAN.md — TDD: Move preflight from main.rs into event.rs Rename/Drop branches (HOOK-12 structural fix)
+- [x] 06-01-PLAN.md — TDD: Move preflight from main.rs into event.rs Rename/Drop branches (HOOK-12 structural fix)
 - [ ] 06-02-PLAN.md — Extend MenuChoice (4 options), add 4 Screen variants + stubs, fix modulus (HOOK-01, HOOK-02)
 - [ ] 06-03-PLAN.md — TDD: Add flow — HookAddList, install_strip wiring, HookSuccess, HookAlreadyStripped (HOOK-03, HOOK-11)
 - [ ] 06-04-PLAN.md — TDD: Manage flow — HookManageList, remove_strip wiring, empty state (HOOK-02, HOOK-09, HOOK-11)
@@ -89,4 +89,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
 | 4. CI + Distribution | 2/2 | Complete   | 2026-05-20 |
 | 5. Hook Engine | 5/5 | Complete   | 2026-05-21 |
-| 6. Hook TUI Integration | 0/5 | Not started | - |
+| 6. Hook TUI Integration | 1/5 | In Progress|  |
