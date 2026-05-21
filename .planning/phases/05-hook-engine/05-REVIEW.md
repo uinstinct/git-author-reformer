@@ -17,7 +17,13 @@ findings:
   warning: 2
   info: 2
   total: 5
-status: issues_found
+fixes_applied:
+  critical: 1
+  warning: 2
+  info: 0
+  total: 3
+status: fixed_critical_and_warning
+remaining: 2 info findings (IN-01 symlink in delete_hook, IN-02 marker collision) — accepted as known tradeoffs
 ---
 
 # Phase 05: Code Review Report
