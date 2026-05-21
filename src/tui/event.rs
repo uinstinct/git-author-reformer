@@ -1421,6 +1421,40 @@ mod tests {
     }
 
     #[test]
+    fn test_manage_remove_last_entry_shows_hook_removed_distinct_from_empty_state() {
+        // SC4: removing the last strip entry must produce Screen::HookRemoved,
+        // distinct from the never-installed empty state (Screen::HookSuccess { state: Absent }).
+        //
+        // Part A — HookDeleted path produces HookRemoved:
+        let (_dir, mut app) = make_test_app_with_commits();
+        crate::hook::install_strip(&app.repo, "bob@example.com").unwrap();
+        app.screen = make_hook_manage_list_screen(&["bob@example.com"]);
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(app.screen, Screen::HookRemoved),
+            "expected Screen::HookRemoved after removing the last entry, got {:?}",
+            std::mem::discriminant(&app.screen)
+        );
+
+        // Part B — empty-state path (no hook ever installed) still produces HookSuccess(Absent):
+        let (_dir2, mut app2) = make_test_app();
+        // No hook installed; navigate to Manage (index 3) and Enter
+        handle_key(&mut app2, KeyCode::Down); // 0->1
+        handle_key(&mut app2, KeyCode::Down); // 1->2
+        handle_key(&mut app2, KeyCode::Down); // 2->3
+        handle_key(&mut app2, KeyCode::Enter);
+        assert!(
+            matches!(
+                app2.screen,
+                Screen::HookSuccess {
+                    state: crate::hook::HookState::Absent
+                }
+            ),
+            "expected HookSuccess(Absent) for never-installed empty state"
+        );
+    }
+
+    #[test]
     fn test_manage_esc_returns_to_main_menu() {
         // HOOK-02: Esc from HookManageList returns to MainMenu { selected: 3 }.
         // FAILS because HookManageList arm is a placeholder.
