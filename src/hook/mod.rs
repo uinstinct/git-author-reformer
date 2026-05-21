@@ -69,6 +69,14 @@ pub fn install_strip(
         HookState::Absent => vec![],
         HookState::Managed { emails } => emails,
     };
+    for e in &emails {
+        if let Err(forbidden_char) = render::validate_email_for_embedding(e) {
+            return Err(crate::error::AppError::HookInvalidEmail {
+                email: e.clone(),
+                forbidden_char,
+            });
+        }
+    }
     if emails.iter().any(|e| e.eq_ignore_ascii_case(&lowered)) {
         return Ok(AddResult::AlreadyStripped);
     }
@@ -96,6 +104,14 @@ pub fn remove_strip(
         HookState::Absent => return Ok(RemoveResult::NotFound),
         HookState::Managed { emails } => emails,
     };
+    for e in &emails {
+        if let Err(forbidden_char) = render::validate_email_for_embedding(e) {
+            return Err(crate::error::AppError::HookInvalidEmail {
+                email: e.clone(),
+                forbidden_char,
+            });
+        }
+    }
     let original_len = emails.len();
     let filtered: Vec<String> = emails
         .into_iter()
