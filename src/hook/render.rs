@@ -68,14 +68,13 @@ BEGIN {{
     )
 }
 
-/// Returns `Err` if any character in the email would break the awk string literal
-/// (`"`, `\`, `\n`, `\r`). Used by `install_strip` for validation before rendering.
-pub(crate) fn validate_email_for_embedding(email: &str) -> Result<(), &'static str> {
+/// Returns `Err(ch)` if `ch` in the email would break the shell single-quote context
+/// or the awk string literal (`'`, `"`, `\`, `\n`, `\r`). Used by `install_strip`
+/// for validation before rendering.
+pub(crate) fn validate_email_for_embedding(email: &str) -> Result<(), char> {
     for ch in email.chars() {
         match ch {
-            '"' | '\\' | '\n' | '\r' => {
-                return Err("email contains forbidden character for awk embedding")
-            }
+            '\'' | '"' | '\\' | '\n' | '\r' => return Err(ch),
             _ => {}
         }
     }
@@ -283,5 +282,21 @@ mod tests {
     fn validate_email_for_embedding_accepts_normal_email() {
         let result = validate_email_for_embedding("bob@example.com");
         assert!(result.is_ok(), "normal email must be accepted");
+    }
+
+    // --- CR-01 regression: single-quote shell injection vector ---
+
+    #[test]
+    fn validate_email_for_embedding_rejects_single_quote() {
+        // CR-01: a single-quote in the email terminates the shell single-quote
+        // context prematurely, allowing injection of arbitrary shell commands
+        // when the generated hook runs.
+        let result = validate_email_for_embedding("it'shim@x.com");
+        assert!(result.is_err(), "single quote in email must be rejected");
+        assert_eq!(
+            result.unwrap_err(),
+            '\'',
+            "Err must carry the forbidden single-quote char"
+        );
     }
 }

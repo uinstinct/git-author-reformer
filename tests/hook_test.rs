@@ -329,3 +329,21 @@ fn test_read_strip_list_round_trips_through_render() {
         _ => panic!("expected HookState::Managed after three installs"),
     }
 }
+
+/// CR-01 regression: install_strip must reject any email containing a single-quote.
+/// A single-quote terminates the shell single-quote context in the generated hook,
+/// enabling injection of arbitrary shell commands when the hook runs.
+#[test]
+fn test_install_strip_rejects_email_with_single_quote() {
+    let (_dir, repo) = common::create_fixture_repo();
+    let result = install_strip(&repo, "evil'quote@x.com");
+    assert!(
+        matches!(result, Err(AppError::HookInvalidEmail { .. })),
+        "install_strip must return Err(HookInvalidEmail) for email with single-quote"
+    );
+    // Hook file must not have been written.
+    assert!(
+        !hook_path(&repo).exists(),
+        "hook file must not exist after rejected install"
+    );
+}

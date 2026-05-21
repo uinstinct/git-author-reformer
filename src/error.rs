@@ -25,4 +25,7 @@ pub enum AppError {
 
     #[error("Existing commit-msg hook at {0:?} is not managed by git-author-reformer.\nRemove or rename the file, then re-run.")]
     HookExists(std::path::PathBuf),
+
+    #[error("Email {email:?} contains a character not allowed in the hook strip list (forbidden: {forbidden_char:?}).")]
+    HookInvalidEmail { email: String, forbidden_char: char },
 }
