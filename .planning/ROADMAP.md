@@ -46,7 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 05-01-PLAN.md — Scaffold src/hook/ module skeleton + AppError::HookExists + lib.rs wiring
 - [x] 05-02-PLAN.md — TDD parser: marker-pair detection + strip-list extraction (src/hook/parse.rs)
 - [x] 05-03-PLAN.md — TDD renderer: POSIX sh hook template + twin awk filter + email sanitization (src/hook/render.rs)
-- [ ] 05-04-PLAN.md — Atomic writer + public install_strip/remove_strip/read_strip_list API (src/hook/write.rs, src/hook/mod.rs)
+- [x] 05-04-PLAN.md — Atomic writer + public install_strip/remove_strip/read_strip_list API (src/hook/write.rs, src/hook/mod.rs)
 - [ ] 05-05-PLAN.md — Integration tests for HOOK-04/05/06/07/08/10/12/13 (tests/hook_test.rs + run_hook_on_message helper)
 **Key constraints**:
 - The hook's runtime filter (the `sh` script that strips lines) must use the SAME case-insensitive `Co-authored-by:` matching semantics as the Rust drop flow (HOOK-08). The Rust drop parser is the source of truth; the shell filter is its faithful POSIX reimplementation. Document this twin-source explicitly in plans.
@@ -83,5 +83,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Rewrite Engine | 3/3 | Complete    | 2026-05-20 |
 | 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
 | 4. CI + Distribution | 2/2 | Complete   | 2026-05-20 |
-| 5. Hook Engine | 3/5 | In Progress|  |
+| 5. Hook Engine | 4/5 | In Progress|  |
 | 6. Hook TUI Integration | 0/TBD | Not started | - |
