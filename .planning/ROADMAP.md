@@ -42,7 +42,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Executing the generated hook against a sample commit message strips lines matching `Co-authored-by:` case-insensitively for any email in the embedded list, using the same matching semantics as the existing drop flow (verified by running the script with `sh` on fixture inputs)
   6. Calling any hook engine operation does not invoke the SAFE-01/SAFE-02 preflight blockers — a repo with stash entries or linked worktrees can still have hooks installed or managed
   7. Automated Rust tests cover every engine code path: fresh install, append-to-existing, no-op duplicate, refuse-to-overwrite, parse tool-managed hook back into strip list, remove single entry, remove last entry (file deleted), mode 0755 verified on Unix, and shell-script execution against fixture commit messages — `cargo test` exercises each path with a dedicated test
-**Plans**: 5 plans
+**Plans**: 4 plans
 - [x] 05-01-PLAN.md — Scaffold src/hook/ module skeleton + AppError::HookExists + lib.rs wiring
 - [x] 05-02-PLAN.md — TDD parser: marker-pair detection + strip-list extraction (src/hook/parse.rs)
 - [x] 05-03-PLAN.md — TDD renderer: POSIX sh hook template + twin awk filter + email sanitization (src/hook/render.rs)
@@ -65,12 +65,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Picking "Manage" displays a fuzzy-filterable list of configured strip emails; selecting an entry removes it via the hook engine and lands on a success screen showing the resulting strip-list state (or "hook removed — no entries remain" when the last entry was removed)
   5. Neither Add nor Manage triggers the stash/worktree pre-flight blockers — both flows reach their selectors on a repo with stash entries
   6. Automated TUI/state-machine tests cover every user path: main menu routes each of the four options, Add happy path → success screen, Add duplicate → already-stripped screen, Manage empty state, Manage remove single → updated list, Manage remove last → "hook removed" screen, and a regression test verifies Add/Manage on a repo with stash entries does NOT hit the SAFE-01/SAFE-02 preflight
-**Plans**: 5 plans
+**Plans**: 6 plans
 - [x] 06-01-PLAN.md — TDD: Move preflight from main.rs into event.rs Rename/Drop branches (HOOK-12 structural fix)
 - [x] 06-02-PLAN.md — Extend MenuChoice (4 options), add 4 Screen variants + stubs, fix modulus (HOOK-01, HOOK-02)
 - [x] 06-03-PLAN.md — TDD: Add flow — HookAddList, install_strip wiring, HookSuccess, HookAlreadyStripped (HOOK-03, HOOK-11)
 - [x] 06-04-PLAN.md — TDD: Manage flow — HookManageList, remove_strip wiring, empty state (HOOK-02, HOOK-09, HOOK-11)
 - [x] 06-05-PLAN.md — HOOK-14 stash-bypass tests + final phase gate (clippy/fmt) (HOOK-14)
+- [ ] 06-06-PLAN.md — Gap closure SC4: add Screen::HookRemoved for distinct post-removal state (HOOK-09)
 **Key constraints**:
 - The co-author enumeration in the Add flow must reuse the existing `enumerate_coauthors` from Phase 1, not a parallel implementation (HOOK-03).
 - The Add and Manage flows must dispatch to the hook engine on a code path that bypasses the SAFE-01/SAFE-02 preflight (HOOK-12). Audit the App state machine for any unconditional preflight call before adding the new transitions.
