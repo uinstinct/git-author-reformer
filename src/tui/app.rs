@@ -62,6 +62,7 @@ pub enum Screen {
     HookAlreadyStripped {
         email: String,
     },
+    HookRemoved,
     Err(String),
 }
 
