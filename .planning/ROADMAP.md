@@ -24,7 +24,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Milestone v1.1 — Auto-Strip Co-Author Hook
 
 - [x] **Phase 5: Hook Engine** - Pure-Rust module owning the commit-msg hook file format: parse, serialize, ownership detection, idempotent install/extend/remove (completed 2026-05-21)
-- [ ] **Phase 6: Hook TUI Integration** - Two new main-menu flows (Add, Manage) wired to the hook engine, with success screens
+- [x] **Phase 6: Hook TUI Integration** - Two new main-menu flows (Add, Manage) wired to the hook engine, with success screens (completed 2026-05-21)
 
 ## Phase Details
 
@@ -70,7 +70,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 06-02-PLAN.md — Extend MenuChoice (4 options), add 4 Screen variants + stubs, fix modulus (HOOK-01, HOOK-02)
 - [x] 06-03-PLAN.md — TDD: Add flow — HookAddList, install_strip wiring, HookSuccess, HookAlreadyStripped (HOOK-03, HOOK-11)
 - [x] 06-04-PLAN.md — TDD: Manage flow — HookManageList, remove_strip wiring, empty state (HOOK-02, HOOK-09, HOOK-11)
-- [ ] 06-05-PLAN.md — HOOK-14 stash-bypass tests + final phase gate (clippy/fmt) (HOOK-14)
+- [x] 06-05-PLAN.md — HOOK-14 stash-bypass tests + final phase gate (clippy/fmt) (HOOK-14)
 **Key constraints**:
 - The co-author enumeration in the Add flow must reuse the existing `enumerate_coauthors` from Phase 1, not a parallel implementation (HOOK-03).
 - The Add and Manage flows must dispatch to the hook engine on a code path that bypasses the SAFE-01/SAFE-02 preflight (HOOK-12). Audit the App state machine for any unconditional preflight call before adding the new transitions.
@@ -89,4 +89,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
 | 4. CI + Distribution | 2/2 | Complete   | 2026-05-20 |
 | 5. Hook Engine | 5/5 | Complete   | 2026-05-21 |
-| 6. Hook TUI Integration | 4/5 | In Progress|  |
+| 6. Hook TUI Integration | 5/5 | Complete   | 2026-05-21 |
