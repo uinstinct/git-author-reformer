@@ -15,12 +15,10 @@ fn run() -> Result<(), error::AppError> {
     signal_hook::flag::register(signal_hook::consts::SIGINT, Arc::clone(&term_flag))?;
     signal_hook::flag::register(signal_hook::consts::SIGHUP, Arc::clone(&term_flag))?;
 
-    // 2. Pre-flight (existing Phase 1 gates).
+    // 2. Open repo.
     let repo = git::open_repo()?;
-    git::preflight::check_stash(&repo)?;
-    git::preflight::check_worktrees(&repo)?;
 
-    // 3. TTY guard — must run after pre-flight so those errors still surface
+    // 3. TTY guard — must run after repo open so repo errors surface
     //    cleanly, but before ratatui::init() which panics on a non-TTY stdin.
     //    Triggered when the binary is invoked via `curl ... | sh`.
     if !std::io::stdin().is_terminal() {

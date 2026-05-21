@@ -25,7 +25,9 @@ fn test_binary_exits_with_error_outside_git_repo() {
 }
 
 #[test]
-fn test_binary_blocks_when_stash_ref_exists() {
+fn test_binary_reaches_tty_guard_when_stash_ref_exists() {
+    // HOOK-12: preflight is now gated inside the TUI (Rename/Drop branches), not at startup.
+    // A repo with stash entries must reach the TTY guard (not exit with a preflight error).
     let (_dir, repo) = common::create_fixture_repo();
 
     // Create a synthetic refs/stash pointing at HEAD — simulates a stash entry
@@ -43,17 +45,23 @@ fn test_binary_blocks_when_stash_ref_exists() {
 
     assert!(
         !output.status.success(),
-        "expected non-zero exit code with stash ref"
+        "expected non-zero exit code (TTY guard, not stash preflight)"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Stash entries detected"),
-        "expected 'Stash entries detected' in stderr, got: {stderr}"
+        stderr.contains("Not an interactive terminal"),
+        "expected TTY guard message (preflight is now in-TUI), got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("Stash entries detected"),
+        "stash preflight must NOT fire at startup, got: {stderr}"
     );
 }
 
 #[test]
-fn test_binary_blocks_when_linked_worktree_exists() {
+fn test_binary_reaches_tty_guard_when_linked_worktree_exists() {
+    // HOOK-12: preflight is now gated inside the TUI (Rename/Drop branches), not at startup.
+    // A repo with linked worktrees must reach the TTY guard (not exit with a preflight error).
     let (_dir, repo) = common::create_fixture_repo();
 
     // Create a sibling TempDir; pass a non-existent sub-path as the worktree location
@@ -73,12 +81,16 @@ fn test_binary_blocks_when_linked_worktree_exists() {
 
     assert!(
         !output.status.success(),
-        "expected non-zero exit code with linked worktree"
+        "expected non-zero exit code (TTY guard, not worktree preflight)"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Linked worktrees detected"),
-        "expected 'Linked worktrees detected' in stderr, got: {stderr}"
+        stderr.contains("Not an interactive terminal"),
+        "expected TTY guard message (preflight is now in-TUI), got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("Linked worktrees detected"),
+        "worktree preflight must NOT fire at startup, got: {stderr}"
     );
 }
 

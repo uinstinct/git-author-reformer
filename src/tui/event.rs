@@ -41,7 +41,15 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             KeyCode::Up | KeyCode::Char('k') => *selected = (*selected + 2 - 1) % 2,
             KeyCode::Enter => {
                 if *selected == 0 {
-                    // Rename — load authors
+                    // Rename — preflight then load authors
+                    if let Err(e) = crate::git::preflight::check_stash(&app.repo) {
+                        app.screen = Screen::Err(e.to_string());
+                        return;
+                    }
+                    if let Err(e) = crate::git::preflight::check_worktrees(&app.repo) {
+                        app.screen = Screen::Err(e.to_string());
+                        return;
+                    }
                     match crate::git::reader::enumerate_authors(&app.repo) {
                         Ok(items) => {
                             let mut nucleo = build_author_nucleo(&items);
@@ -59,7 +67,15 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                         }
                     }
                 } else {
-                    // Drop — load co-authors
+                    // Drop — preflight then load co-authors
+                    if let Err(e) = crate::git::preflight::check_stash(&app.repo) {
+                        app.screen = Screen::Err(e.to_string());
+                        return;
+                    }
+                    if let Err(e) = crate::git::preflight::check_worktrees(&app.repo) {
+                        app.screen = Screen::Err(e.to_string());
+                        return;
+                    }
                     match crate::git::reader::enumerate_coauthors(&app.repo) {
                         Ok(items) => {
                             let mut nucleo = build_coauthor_nucleo(&items);
