@@ -68,14 +68,13 @@ BEGIN {{
     )
 }
 
-/// Returns `Err` if any character in the email would break the awk string literal
-/// (`"`, `\`, `\n`, `\r`). Used by `install_strip` for validation before rendering.
-pub(crate) fn validate_email_for_embedding(email: &str) -> Result<(), &'static str> {
+/// Returns `Err(ch)` if `ch` in the email would break the shell single-quote context
+/// or the awk string literal (`'`, `"`, `\`, `\n`, `\r`). Used by `install_strip`
+/// for validation before rendering.
+pub(crate) fn validate_email_for_embedding(email: &str) -> Result<(), char> {
     for ch in email.chars() {
         match ch {
-            '"' | '\\' | '\n' | '\r' => {
-                return Err("email contains forbidden character for awk embedding")
-            }
+            '\'' | '"' | '\\' | '\n' | '\r' => return Err(ch),
             _ => {}
         }
     }

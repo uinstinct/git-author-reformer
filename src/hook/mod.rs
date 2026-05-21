@@ -4,7 +4,6 @@ pub mod render;
 pub mod write;
 
 use std::fs;
-use std::io;
 use std::path::PathBuf;
 
 pub enum HookState {
@@ -51,11 +50,17 @@ pub fn install_strip(
     repo: &git2::Repository,
     email: &str,
 ) -> Result<AddResult, crate::error::AppError> {
-    if email.is_empty() || render::validate_email_for_embedding(email).is_err() {
-        return Err(crate::error::AppError::Io(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "email is empty or contains characters forbidden for hook embedding",
-        )));
+    if email.is_empty() {
+        return Err(crate::error::AppError::HookInvalidEmail {
+            email: email.to_string(),
+            forbidden_char: '\0',
+        });
+    }
+    if let Err(forbidden_char) = render::validate_email_for_embedding(email) {
+        return Err(crate::error::AppError::HookInvalidEmail {
+            email: email.to_string(),
+            forbidden_char,
+        });
     }
     let lowered = email.to_ascii_lowercase();
     let hook_path = path::commit_msg_hook_path(repo);
