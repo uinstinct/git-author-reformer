@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Auto-Strip Co-Author Hook
 status: planning
-last_updated: "2026-05-21T01:03:51.652Z"
+last_updated: "2026-05-21T01:30:00.000Z"
 last_activity: 2026-05-21
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,36 +17,41 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-20)
+See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** Any developer can clean up git author history in seconds — no Python, no git filter-branch complexity, no installation.
-**Current focus:** Milestone v1.0 complete
+**Current focus:** Milestone v1.1 — Auto-Strip Co-Author Hook. Phase 5 (Hook Engine) is next.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 5 — Hook Engine (next-up, not yet started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-21 — Milestone v1.1 started
+Status: Roadmap written; awaiting `/gsd:plan-phase 5`
+Last activity: 2026-05-21 — v1.1 roadmap created (Phases 5–6 appended)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 14 (v1.0 milestone)
 - Average duration: —
-- Total execution time: 0 hours
+- Total execution time: —
 
 **By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| - | - | - | - |
+| Phase | Plans | Status |
+|-------|-------|--------|
+| 1. Foundation + Read Layer | 4/4 | Complete (2026-05-20) |
+| 2. Rewrite Engine | 3/3 | Complete (2026-05-20) |
+| 3. TUI + Integration | 5/5 | Complete (2026-05-20) |
+| 4. CI + Distribution | 2/2 | Complete (2026-05-20) |
+| 5. Hook Engine | 0/TBD | Not started |
+| 6. Hook TUI Integration | 0/TBD | Not started |
 
 **Recent Trend:**
 
-- Last 5 plans: —
-- Trend: —
+- Last 5 plans: 03-05, 04-01, 04-02 + 2 quick tasks
+- Trend: v1.0 shipped; v1.1 planning phase
 
 *Updated after each plan completion*
 | Phase 04-ci-distribution P01 | 12 | 1 tasks | 1 files |
@@ -65,6 +70,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-01: macos-15-intel for x86_64 Intel builds (macos-13 retired Dec 2025), macos-15 for aarch64
 - [Phase ?]: 04-01: softprops/action-gh-release@v2 for concurrent matrix-upload safety
 - [Phase ?]: 04-01: Explicit RUSTFLAGS crt-static for musl (default changing in future rustc per PR#133386)
+- v1.1: Use `commit-msg` hook (not post-commit) for auto-strip — edits message before commit object is created; no SHA churn, no force-push
+- v1.1: Store strip list inline in hook file between markers — self-contained, no extra config files
+- v1.1: Refuse-to-overwrite pre-existing non-tool hook — safer than merge-on-the-fly; user explicitly removes their hook before installing ours
+- v1.1: Hook engine (Phase 5) before TUI integration (Phase 6) — mirrors v1.0 engine-then-TUI split for clean dependencies and TDD-friendly engine
 
 ### Pending Todos
 
@@ -91,8 +100,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T13:13:40.379Z
-Stopped at: Roadmap written; STATE.md initialized. Next: `/gsd:plan-phase 1`
+Last session: 2026-05-21T01:30:00.000Z
+Stopped at: v1.1 roadmap written (Phases 5–6 appended); STATE.md updated. Next: `/gsd:plan-phase 5`
 Resume file: None
 | 2026-05-20 | fast | sync Cargo.lock after v0.1.2 release | ✅ |
 | 2026-05-20 | fast | fix clippy::collapsible_match in rewrite.rs and event.rs | ✅ |

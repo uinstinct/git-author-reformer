@@ -19,6 +19,8 @@
 - [ ] **HOOK-10**: Removing the last entry from the strip list deletes the hook file entirely — no empty marker file is left behind
 - [ ] **HOOK-11**: Both "Add" and "Manage" flows end on a success screen showing the resulting strip-list state (e.g. "Hook installed — stripping 2 emails: a@x.com, b@y.com" or "Hook removed — no entries remain")
 - [ ] **HOOK-12**: Hook install/manage operations do NOT trigger the existing stash/worktree pre-flight blockers (SAFE-01, SAFE-02) — installing a hook does not rewrite history
+- [ ] **HOOK-13**: Hook engine has automated Rust tests covering every code path: fresh install on a repo with no hook, append-to-existing tool-managed hook, no-op when adding a duplicate email, refuse-to-overwrite a non-tool-managed hook, remove a single entry, remove the last entry (hook file deleted), parse a tool-managed hook back into its strip list, mode 0755 is set, and the generated shell script correctly strips matching `Co-authored-by:` lines case-insensitively when executed against fixture commit messages
+- [ ] **HOOK-14**: Hook TUI flows have automated tests covering every user path: main menu shows all four options and routes each correctly, "Add" happy path lands on success screen with updated list, "Add" with already-stripped email lands on no-op screen, "Manage" empty state renders when no hook installed, "Manage" remove-single-entry lands on success screen with remaining list, "Manage" remove-last-entry lands on "hook removed" screen, and neither flow invokes the SAFE-01/SAFE-02 preflight on a repo with stash entries
 
 ## v1.0 Requirements — Shipped 2026-05-20
 
@@ -126,23 +128,25 @@
 | DIST-03 | Phase 4 | Complete |
 | DIST-04 | Phase 4 | Complete |
 | DIST-05 | Phase 4 | Complete |
-| HOOK-01 | Phase TBD | Pending |
-| HOOK-02 | Phase TBD | Pending |
-| HOOK-03 | Phase TBD | Pending |
-| HOOK-04 | Phase TBD | Pending |
-| HOOK-05 | Phase TBD | Pending |
-| HOOK-06 | Phase TBD | Pending |
-| HOOK-07 | Phase TBD | Pending |
-| HOOK-08 | Phase TBD | Pending |
-| HOOK-09 | Phase TBD | Pending |
-| HOOK-10 | Phase TBD | Pending |
-| HOOK-11 | Phase TBD | Pending |
-| HOOK-12 | Phase TBD | Pending |
+| HOOK-01 | Phase 6 | Pending |
+| HOOK-02 | Phase 6 | Pending |
+| HOOK-03 | Phase 6 | Pending |
+| HOOK-04 | Phase 5 | Pending |
+| HOOK-05 | Phase 5 | Pending |
+| HOOK-06 | Phase 5 | Pending |
+| HOOK-07 | Phase 5 | Pending |
+| HOOK-08 | Phase 5 | Pending |
+| HOOK-09 | Phase 6 | Pending |
+| HOOK-10 | Phase 5 | Pending |
+| HOOK-11 | Phase 6 | Pending |
+| HOOK-12 | Phase 5 | Pending |
+| HOOK-13 | Phase 5 | Pending |
+| HOOK-14 | Phase 6 | Pending |
 
 **Coverage:**
 - v1.0 requirements: 23 total (mapped, shipped)
-- v1.1 requirements: 12 total (mapping to be filled by roadmapper)
+- v1.1 requirements: 14 total (mapped: 8 → Phase 5, 6 → Phase 6)
 
 ---
 *Requirements defined: 2026-05-20*
-*Last updated: 2026-05-21 after v1.1 requirements added*
+*Last updated: 2026-05-21 after v1.1 roadmap mapping*
