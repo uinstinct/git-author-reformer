@@ -1054,4 +1054,110 @@ mod tests {
         handle_key(&mut app, KeyCode::Esc);
         assert!(app.should_exit);
     }
+
+    // ---- New tests for Plan 06-03 (Add hook flow) ----
+
+    fn make_hook_add_list_screen(entries: &[(&str, &str)]) -> Screen {
+        use crate::git::types::CoAuthorEntry;
+        let items: Vec<CoAuthorEntry> = entries
+            .iter()
+            .map(|(n, e)| CoAuthorEntry {
+                name: n.to_string(),
+                email: e.to_string(),
+                commit_count: 1,
+            })
+            .collect();
+        let mut nucleo = build_coauthor_nucleo(&items);
+        let matched = apply_coauthor_filter(&mut nucleo, "");
+        Screen::HookAddList {
+            current_strip: vec![],
+            items,
+            filter: String::new(),
+            matched,
+            nucleo,
+            selected: 0,
+        }
+    }
+
+    #[test]
+    fn test_main_menu_routes_add_hook() {
+        // HOOK-01: Selecting 'Add co-author auto-strip hook' (index 2) opens HookAddList.
+        // 06-02 stub sets Screen::Err("not yet implemented"); this test confirms replacement.
+        let (_dir, mut app) = make_test_app_with_commits();
+        // Navigate to index 2 (AddHook)
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(app.screen, Screen::HookAddList { .. }),
+            "expected HookAddList, got something else"
+        );
+    }
+
+    #[test]
+    fn test_add_hook_happy_path() {
+        // HOOK-01/HOOK-11: Selecting a co-author calls install_strip; success -> HookSuccess
+        // with state populated from read_strip_list (not from cached data).
+        let (_dir, mut app) = make_test_app_with_commits();
+        app.screen = make_hook_add_list_screen(&[("Bob", "bob@example.com")]);
+        handle_key(&mut app, KeyCode::Enter);
+        match &app.screen {
+            Screen::HookSuccess { state } => match state {
+                crate::hook::HookState::Managed { emails } => {
+                    assert!(
+                        emails.iter().any(|e| e == "bob@example.com"),
+                        "strip list must contain bob@example.com"
+                    );
+                }
+                other => panic!("expected HookState::Managed, got other variant"),
+            },
+            other => panic!("expected HookSuccess, got different screen"),
+        }
+    }
+
+    #[test]
+    fn test_add_hook_already_stripped() {
+        // HOOK-01: Selecting a duplicate co-author -> HookAlreadyStripped { email }.
+        let (_dir, mut app) = make_test_app_with_commits();
+        // Pre-install bob@example.com via hook engine
+        let result = crate::hook::install_strip(&app.repo, "bob@example.com");
+        assert!(
+            matches!(result, Ok(crate::hook::AddResult::Installed { .. })),
+            "pre-install must succeed"
+        );
+        // Now attempt to add the same email via the TUI
+        app.screen = make_hook_add_list_screen(&[("Bob", "bob@example.com")]);
+        handle_key(&mut app, KeyCode::Enter);
+        match &app.screen {
+            Screen::HookAlreadyStripped { email } => {
+                assert_eq!(email, "bob@example.com");
+            }
+            other => panic!("expected HookAlreadyStripped, got different screen"),
+        }
+    }
+
+    #[test]
+    fn test_hook_already_stripped_any_key_returns_to_menu() {
+        // HOOK-01: Any key from HookAlreadyStripped returns to MainMenu at index 2.
+        let (_dir, mut app) = make_test_app();
+        app.screen = Screen::HookAlreadyStripped {
+            email: "x@x".into(),
+        };
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(
+            matches!(app.screen, Screen::MainMenu { selected: 2 }),
+            "expected MainMenu {{ selected: 2 }}"
+        );
+    }
+
+    #[test]
+    fn test_hook_success_any_key_exits() {
+        // HOOK-01: Any key from HookSuccess sets should_exit = true.
+        let (_dir, mut app) = make_test_app();
+        app.screen = Screen::HookSuccess {
+            state: crate::hook::HookState::Absent,
+        };
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(app.should_exit, "HookSuccess any-key must set should_exit");
+    }
 }
