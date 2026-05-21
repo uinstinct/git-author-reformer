@@ -44,8 +44,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   7. Automated Rust tests cover every engine code path: fresh install, append-to-existing, no-op duplicate, refuse-to-overwrite, parse tool-managed hook back into strip list, remove single entry, remove last entry (file deleted), mode 0755 verified on Unix, and shell-script execution against fixture commit messages — `cargo test` exercises each path with a dedicated test
 **Plans**: 5 plans
 - [x] 05-01-PLAN.md — Scaffold src/hook/ module skeleton + AppError::HookExists + lib.rs wiring
-- [ ] 05-02-PLAN.md — TDD parser: marker-pair detection + strip-list extraction (src/hook/parse.rs)
-- [ ] 05-03-PLAN.md — TDD renderer: POSIX sh hook template + twin awk filter + email sanitization (src/hook/render.rs)
+- [x] 05-02-PLAN.md — TDD parser: marker-pair detection + strip-list extraction (src/hook/parse.rs)
+- [x] 05-03-PLAN.md — TDD renderer: POSIX sh hook template + twin awk filter + email sanitization (src/hook/render.rs)
 - [ ] 05-04-PLAN.md — Atomic writer + public install_strip/remove_strip/read_strip_list API (src/hook/write.rs, src/hook/mod.rs)
 - [ ] 05-05-PLAN.md — Integration tests for HOOK-04/05/06/07/08/10/12/13 (tests/hook_test.rs + run_hook_on_message helper)
 **Key constraints**:
@@ -83,5 +83,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Rewrite Engine | 3/3 | Complete    | 2026-05-20 |
 | 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
 | 4. CI + Distribution | 2/2 | Complete   | 2026-05-20 |
-| 5. Hook Engine | 1/5 | In Progress|  |
+| 5. Hook Engine | 3/5 | In Progress|  |
 | 6. Hook TUI Integration | 0/TBD | Not started | - |
