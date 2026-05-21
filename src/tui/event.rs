@@ -133,7 +133,33 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                         }
                     }
                     MenuChoice::ManageHook => {
-                        app.screen = Screen::Err("not yet implemented".into());
+                        match crate::hook::read_strip_list(&app.repo) {
+                            Ok(crate::hook::HookState::Absent) => {
+                                app.screen = Screen::HookSuccess {
+                                    state: crate::hook::HookState::Absent,
+                                };
+                            }
+                            Ok(crate::hook::HookState::Managed { emails }) => {
+                                let mut nucleo = build_strip_nucleo(&emails);
+                                let matched = apply_strip_filter(&mut nucleo, "");
+                                app.screen = Screen::HookManageList {
+                                    items: emails,
+                                    filter: String::new(),
+                                    matched,
+                                    nucleo,
+                                    selected: 0,
+                                };
+                            }
+                            Ok(crate::hook::HookState::NotToolManaged(p)) => {
+                                app.screen = Screen::Err(format!(
+                                    "Foreign hook at {} — remove or rename it first.",
+                                    p.display()
+                                ));
+                            }
+                            Err(e) => {
+                                app.screen = Screen::Err(e.to_string());
+                            }
+                        }
                     }
                 }
             }
@@ -347,7 +373,58 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             KeyCode::Esc => app.screen = Screen::MainMenu { selected: 2 },
             _ => {}
         },
-        Screen::HookManageList { .. } => {}
+        Screen::HookManageList {
+            filter,
+            matched,
+            nucleo,
+            selected,
+            ..
+        } => match key {
+            KeyCode::Enter => {
+                // NLL pattern: clone email out before reassigning app.screen
+                let email = matched.get(*selected).cloned();
+                if let Some(email) = email {
+                    match crate::hook::remove_strip(&app.repo, &email) {
+                        Ok(crate::hook::RemoveResult::Updated { .. }) => {
+                            match crate::hook::read_strip_list(&app.repo) {
+                                Ok(state) => app.screen = Screen::HookSuccess { state },
+                                Err(e) => app.screen = Screen::Err(e.to_string()),
+                            }
+                        }
+                        Ok(crate::hook::RemoveResult::HookDeleted) => {
+                            app.screen = Screen::HookSuccess {
+                                state: crate::hook::HookState::Absent,
+                            };
+                        }
+                        Ok(crate::hook::RemoveResult::NotFound) => {
+                            app.screen =
+                                Screen::Err("email not found in strip list (unexpected)".into());
+                        }
+                        Err(e) => {
+                            app.screen = Screen::Err(e.to_string());
+                        }
+                    }
+                }
+            }
+            KeyCode::Char(c) => {
+                filter.push(c);
+                *matched = apply_strip_filter(nucleo, filter);
+                *selected = 0;
+            }
+            KeyCode::Backspace => {
+                filter.pop();
+                *matched = apply_strip_filter(nucleo, filter);
+                *selected = 0;
+            }
+            KeyCode::Down if !matched.is_empty() => {
+                *selected = (*selected + 1) % matched.len();
+            }
+            KeyCode::Up if !matched.is_empty() => {
+                *selected = (*selected + matched.len() - 1) % matched.len();
+            }
+            KeyCode::Esc => app.screen = Screen::MainMenu { selected: 3 },
+            _ => {}
+        },
         Screen::HookSuccess { .. } => {
             app.should_exit = true;
         }
