@@ -42,7 +42,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Executing the generated hook against a sample commit message strips lines matching `Co-authored-by:` case-insensitively for any email in the embedded list, using the same matching semantics as the existing drop flow (verified by running the script with `sh` on fixture inputs)
   6. Calling any hook engine operation does not invoke the SAFE-01/SAFE-02 preflight blockers — a repo with stash entries or linked worktrees can still have hooks installed or managed
   7. Automated Rust tests cover every engine code path: fresh install, append-to-existing, no-op duplicate, refuse-to-overwrite, parse tool-managed hook back into strip list, remove single entry, remove last entry (file deleted), mode 0755 verified on Unix, and shell-script execution against fixture commit messages — `cargo test` exercises each path with a dedicated test
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 05-01-PLAN.md — Scaffold src/hook/ module skeleton + AppError::HookExists + lib.rs wiring
+- [ ] 05-02-PLAN.md — TDD parser: marker-pair detection + strip-list extraction (src/hook/parse.rs)
+- [ ] 05-03-PLAN.md — TDD renderer: POSIX sh hook template + twin awk filter + email sanitization (src/hook/render.rs)
+- [ ] 05-04-PLAN.md — Atomic writer + public install_strip/remove_strip/read_strip_list API (src/hook/write.rs, src/hook/mod.rs)
+- [ ] 05-05-PLAN.md — Integration tests for HOOK-04/05/06/07/08/10/12/13 (tests/hook_test.rs + run_hook_on_message helper)
 **Key constraints**:
 - The hook's runtime filter (the `sh` script that strips lines) must use the SAME case-insensitive `Co-authored-by:` matching semantics as the Rust drop flow (HOOK-08). The Rust drop parser is the source of truth; the shell filter is its faithful POSIX reimplementation. Document this twin-source explicitly in plans.
 - The Rust side writes a fixed shell script template with the strip list embedded between two distinctive marker comments. The script itself contains no Rust — it is plain POSIX `sh` using `grep -i` / `sed` to filter `Co-authored-by:` lines whose emails match the embedded list.
@@ -78,5 +83,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Rewrite Engine | 3/3 | Complete    | 2026-05-20 |
 | 3. TUI + Integration | 5/5 | Complete   | 2026-05-20 |
 | 4. CI + Distribution | 2/2 | Complete   | 2026-05-20 |
-| 5. Hook Engine | 0/TBD | Not started | - |
+| 5. Hook Engine | 0/5   | Not started | - |
 | 6. Hook TUI Integration | 0/TBD | Not started | - |
