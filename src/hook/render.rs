@@ -6,10 +6,7 @@
 //!
 //! This is a pure function — no I/O. Plan 04 (write.rs) does the filesystem work.
 
-// Marker constants — mirrored locally until plan 05-04 consolidates with parse.rs.
-// These MUST match the constants in parse.rs exactly.
-const BEGIN_MARKER: &str = "# >>> git-author-reformer auto-strip BEGIN >>>";
-const END_MARKER: &str = "# <<< git-author-reformer auto-strip END <<<";
+use crate::hook::parse::{BEGIN_MARKER, END_MARKER};
 
 /// Render the full POSIX sh hook file body for a given strip list.
 ///
@@ -88,10 +85,6 @@ pub(crate) fn validate_email_for_embedding(email: &str) -> Result<(), &'static s
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // Marker constants (mirrored locally; plan 05-04 consolidates with parse.rs)
-    const BEGIN_MARKER: &str = "# >>> git-author-reformer auto-strip BEGIN >>>";
-    const END_MARKER: &str = "# <<< git-author-reformer auto-strip END <<<";
 
     // --- Shape tests ---
 
