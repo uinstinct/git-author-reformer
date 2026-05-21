@@ -132,35 +132,33 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                             }
                         }
                     }
-                    MenuChoice::ManageHook => {
-                        match crate::hook::read_strip_list(&app.repo) {
-                            Ok(crate::hook::HookState::Absent) => {
-                                app.screen = Screen::HookSuccess {
-                                    state: crate::hook::HookState::Absent,
-                                };
-                            }
-                            Ok(crate::hook::HookState::Managed { emails }) => {
-                                let mut nucleo = build_strip_nucleo(&emails);
-                                let matched = apply_strip_filter(&mut nucleo, "");
-                                app.screen = Screen::HookManageList {
-                                    items: emails,
-                                    filter: String::new(),
-                                    matched,
-                                    nucleo,
-                                    selected: 0,
-                                };
-                            }
-                            Ok(crate::hook::HookState::NotToolManaged(p)) => {
-                                app.screen = Screen::Err(format!(
-                                    "Foreign hook at {} — remove or rename it first.",
-                                    p.display()
-                                ));
-                            }
-                            Err(e) => {
-                                app.screen = Screen::Err(e.to_string());
-                            }
+                    MenuChoice::ManageHook => match crate::hook::read_strip_list(&app.repo) {
+                        Ok(crate::hook::HookState::Absent) => {
+                            app.screen = Screen::HookSuccess {
+                                state: crate::hook::HookState::Absent,
+                            };
                         }
-                    }
+                        Ok(crate::hook::HookState::Managed { emails }) => {
+                            let mut nucleo = build_strip_nucleo(&emails);
+                            let matched = apply_strip_filter(&mut nucleo, "");
+                            app.screen = Screen::HookManageList {
+                                items: emails,
+                                filter: String::new(),
+                                matched,
+                                nucleo,
+                                selected: 0,
+                            };
+                        }
+                        Ok(crate::hook::HookState::NotToolManaged(p)) => {
+                            app.screen = Screen::Err(format!(
+                                "Foreign hook at {} — remove or rename it first.",
+                                p.display()
+                            ));
+                        }
+                        Err(e) => {
+                            app.screen = Screen::Err(e.to_string());
+                        }
+                    },
                 }
             }
             KeyCode::Char('q') | KeyCode::Esc => app.should_exit = true,
@@ -1433,5 +1431,58 @@ mod tests {
             matches!(app.screen, Screen::MainMenu { selected: 3 }),
             "expected MainMenu {{ selected: 3 }} after Esc from HookManageList"
         );
+    }
+
+    // ---- New tests for Plan 06-05 (HOOK-14 stash-bypass regression) ----
+
+    #[test]
+    fn test_add_hook_no_preflight_with_stash() {
+        // HOOK-14 / HOOK-12: Add flow must NOT trigger the stash preflight (SAFE-01).
+        // A repo with a stash ref must reach HookAddList or HookSuccess, not Screen::Err.
+        let (_dir, mut app) = make_test_app_with_stash();
+        // Navigate to Add (index 2): two Down presses
+        handle_key(&mut app, KeyCode::Down); // 0 -> 1
+        handle_key(&mut app, KeyCode::Down); // 1 -> 2
+        handle_key(&mut app, KeyCode::Enter);
+        match &app.screen {
+            Screen::Err(msg) => {
+                assert!(
+                    !msg.contains("stash") && !msg.contains("Stash"),
+                    "Add flow must not trigger stash preflight; got Err: {}",
+                    msg
+                );
+            }
+            Screen::HookAddList { .. } | Screen::HookSuccess { .. } => {} // both acceptable
+            other => panic!(
+                "unexpected screen variant after Add on stash repo: {:?}",
+                std::mem::discriminant(other)
+            ),
+        }
+    }
+
+    #[test]
+    fn test_manage_no_preflight_with_stash() {
+        // HOOK-14 / HOOK-12: Manage flow must NOT trigger the stash preflight (SAFE-02).
+        // A fresh repo with a stash ref must reach HookSuccess(Absent), not Screen::Err.
+        let (_dir, mut app) = make_test_app_with_stash();
+        // Navigate to Manage (index 3): three Down presses
+        handle_key(&mut app, KeyCode::Down); // 0 -> 1
+        handle_key(&mut app, KeyCode::Down); // 1 -> 2
+        handle_key(&mut app, KeyCode::Down); // 2 -> 3
+        handle_key(&mut app, KeyCode::Enter);
+        match &app.screen {
+            Screen::Err(msg) => {
+                assert!(
+                    !msg.contains("stash") && !msg.contains("Stash"),
+                    "Manage flow must not trigger stash preflight; got Err: {}",
+                    msg
+                );
+            }
+            Screen::HookSuccess { .. } | Screen::HookManageList { .. } => {} // both acceptable
+            other => panic!(
+                "unexpected screen variant after Manage on stash repo: {:?}",
+                std::mem::discriminant(other)
+            ),
+        }
     }
 }
