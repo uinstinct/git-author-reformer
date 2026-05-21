@@ -283,4 +283,20 @@ mod tests {
         let result = validate_email_for_embedding("bob@example.com");
         assert!(result.is_ok(), "normal email must be accepted");
     }
+
+    // --- CR-01 regression: single-quote shell injection vector ---
+
+    #[test]
+    fn validate_email_for_embedding_rejects_single_quote() {
+        // CR-01: a single-quote in the email terminates the shell single-quote
+        // context prematurely, allowing injection of arbitrary shell commands
+        // when the generated hook runs.
+        let result = validate_email_for_embedding("it'shim@x.com");
+        assert!(result.is_err(), "single quote in email must be rejected");
+        assert_eq!(
+            result.unwrap_err(),
+            '\'',
+            "Err must carry the forbidden single-quote char"
+        );
+    }
 }
