@@ -1,11 +1,88 @@
-//! Implemented in Plan 03
+//! Hook file renderer — produces the full POSIX sh hook body from a strip email list.
+//!
+//! The rendered hook embeds the strip list twice:
+//! 1. As `# <email>` comment lines between the BEGIN/END markers (for the Rust parser to read back).
+//! 2. As `strip["<email>"] = 1` entries in the awk BEGIN block (for the runtime filter).
+//!
+//! This is a pure function — no I/O. Plan 04 (write.rs) does the filesystem work.
 
-pub(crate) fn render_hook(_emails: &[String]) -> String {
-    unimplemented!("Plan 03 implements this")
+// Marker constants — mirrored locally until plan 05-04 consolidates with parse.rs.
+// These MUST match the constants in parse.rs exactly.
+const BEGIN_MARKER: &str = "# >>> git-author-reformer auto-strip BEGIN >>>";
+const END_MARKER: &str = "# <<< git-author-reformer auto-strip END <<<";
+
+/// Render the full POSIX sh hook file body for a given strip list.
+///
+/// Emails are lowercased before embedding. All inputs MUST be pre-validated
+/// with `validate_email_for_embedding` (called by `install_strip` upstream).
+///
+/// The output uses LF (`\n`) line endings exclusively — never CRLF (Pitfall §4).
+pub(crate) fn render_hook(emails: &[String]) -> String {
+    let lowercased: Vec<String> = emails.iter().map(|e| e.to_ascii_lowercase()).collect();
+
+    // Build comment block (for Rust parser — HOOK-08 twin parity source)
+    let comment_lines: String = lowercased.iter().map(|e| format!("# {}\n", e)).collect();
+
+    // Build awk strip array entries (for runtime filter)
+    let awk_strip_entries: String = lowercased
+        .iter()
+        .map(|e| format!("  strip[\"{}\"] = 1\n", e))
+        .collect();
+
+    format!(
+        r#"#!/bin/sh
+{begin}
+{comment_lines}{end}
+
+# Filter Co-authored-by trailers whose email matches any in the embedded list.
+# Twin of the Rust drop flow in src/git/reader.rs + src/git/rewrite.rs.
+# Matching semantics: case-insensitive prefix on "co-authored-by:", structural
+# extraction of email from the LAST <...> pair, ASCII case-fold compare.
+
+awk '
+BEGIN {{
+{awk_strip_entries}}}
+{{
+  line = $0
+  t = line
+  sub(/^[ \t]+/, "", t)
+  prefix = tolower(substr(t, 1, 15))
+  if (prefix != "co-authored-by:") {{ print; next }}
+  rest = substr(t, 16)
+  lt = 0; gt = 0
+  for (i = length(rest); i > 0; i--) {{
+    c = substr(rest, i, 1)
+    if (gt == 0 && c == ">") gt = i
+    if (c == "<")            {{ lt = i; break }}
+  }}
+  if (lt == 0 || gt == 0 || gt < lt) {{ print; next }}
+  email = substr(rest, lt + 1, gt - lt - 1)
+  gsub(/^[ \t]+|[ \t]+$/, "", email)
+  email = tolower(email)
+  if (email in strip) next
+  print
+}}
+' "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+"#,
+        begin = BEGIN_MARKER,
+        end = END_MARKER,
+        comment_lines = comment_lines,
+        awk_strip_entries = awk_strip_entries,
+    )
 }
 
-pub(crate) fn validate_email_for_embedding(_email: &str) -> Result<(), &'static str> {
-    unimplemented!("Plan 03 implements this")
+/// Returns `Err` if any character in the email would break the awk string literal
+/// (`"`, `\`, `\n`, `\r`). Used by `install_strip` for validation before rendering.
+pub(crate) fn validate_email_for_embedding(email: &str) -> Result<(), &'static str> {
+    for ch in email.chars() {
+        match ch {
+            '"' | '\\' | '\n' | '\r' => {
+                return Err("email contains forbidden character for awk embedding")
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
