@@ -390,9 +390,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                             }
                         }
                         Ok(crate::hook::RemoveResult::HookDeleted) => {
-                            app.screen = Screen::HookSuccess {
-                                state: crate::hook::HookState::Absent,
-                            };
+                            app.screen = Screen::HookRemoved;
                         }
                         Ok(crate::hook::RemoveResult::NotFound) => {
                             app.screen =
@@ -428,6 +426,9 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
         }
         Screen::HookAlreadyStripped { .. } => {
             app.screen = Screen::MainMenu { selected: 2 };
+        }
+        Screen::HookRemoved => {
+            app.should_exit = true;
         }
         Screen::Err(_) => {
             app.should_exit = true;
@@ -991,6 +992,7 @@ mod tests {
                     Screen::HookManageList { .. } => "HookManageList",
                     Screen::HookSuccess { .. } => "HookSuccess",
                     Screen::HookAlreadyStripped { .. } => "HookAlreadyStripped",
+                    Screen::HookRemoved => "HookRemoved",
                     Screen::Err(_) => "Err",
                 }
             ),
@@ -1402,21 +1404,15 @@ mod tests {
 
     #[test]
     fn test_manage_remove_last_entry() {
-        // HOOK-09/HOOK-11: HookManageList with one email; removing it -> HookSuccess(Absent)
+        // HOOK-09/HOOK-11: HookManageList with one email; removing it -> HookRemoved
         // directly (HookDeleted path — no re-read; HOOK-11 exception).
-        // FAILS because HookManageList arm is a placeholder.
         let (_dir, mut app) = make_test_app_with_commits();
         crate::hook::install_strip(&app.repo, "bob@example.com").unwrap();
         app.screen = make_hook_manage_list_screen(&["bob@example.com"]);
         handle_key(&mut app, KeyCode::Enter);
         assert!(
-            matches!(
-                app.screen,
-                Screen::HookSuccess {
-                    state: crate::hook::HookState::Absent
-                }
-            ),
-            "expected HookSuccess(Absent) after removing the last entry"
+            matches!(app.screen, Screen::HookRemoved),
+            "expected HookRemoved after removing the last entry"
         );
     }
 

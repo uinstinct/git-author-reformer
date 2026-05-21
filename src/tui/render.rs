@@ -55,6 +55,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         Screen::HookAlreadyStripped { email } => {
             render_hook_already_stripped(frame, frame.area(), email)
         }
+        Screen::HookRemoved => render_hook_removed(frame, frame.area()),
         Screen::Err(msg) => render_err(frame, frame.area(), msg),
     }
 }
@@ -532,6 +533,15 @@ fn render_hook_already_stripped(frame: &mut Frame, area: Rect, email: &str) {
     frame.render_widget(
         Paragraph::new(text)
             .block(Block::bordered().title("No change"))
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+}
+
+fn render_hook_removed(frame: &mut Frame, area: Rect) {
+    frame.render_widget(
+        Paragraph::new("Hook removed \u{2014} no entries remain.\n\nAny key to exit.")
+            .block(Block::bordered().title("Hook Removed"))
             .wrap(Wrap { trim: false }),
         area,
     );
