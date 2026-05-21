@@ -1,42 +1,59 @@
 # Requirements: git-author-reformer
 
-**Defined:** 2026-05-20
+**Defined:** 2026-05-20 (v1.0), 2026-05-21 (v1.1)
 **Core Value:** Any developer can clean up git author history in seconds — no Python, no git filter-branch complexity, no installation.
 
-## v1 Requirements
+## v1.1 Requirements
+
+### Auto-Strip Hook
+
+- [ ] **HOOK-01**: TUI main menu shows a third option **"Add co-author auto-strip hook"** alongside the existing rename and drop options
+- [ ] **HOOK-02**: TUI main menu shows a fourth option **"Manage auto-strip hook"** alongside the other three options; this option is always visible (works even when no hook is installed, showing an empty state)
+- [ ] **HOOK-03**: When the user picks "Add", the tool shows the list of currently-stripped emails (or "no entries yet" if none), then presents a fuzzy-filterable co-author list reusing the same enumeration as the existing drop flow
+- [ ] **HOOK-04**: When the user selects a co-author to add, the tool writes `.git/hooks/commit-msg` if absent, or rewrites it with the email appended to the embedded strip list if present and tool-managed
+- [ ] **HOOK-05**: Adding an email already present in the strip list is a no-op shown to the user as "already stripped: <email>" — the hook file is not rewritten
+- [ ] **HOOK-06**: If `.git/hooks/commit-msg` exists and does NOT contain the tool's marker comment, the tool refuses to overwrite, displays a clear error naming the file and instructing the user to remove or rename it, and exits the flow without writing anything
+- [ ] **HOOK-07**: The generated hook file is POSIX `sh` (shebang `#!/bin/sh`, no bash-isms) and is created with executable permissions (mode 0755 on Unix); the strip list lives between two distinctive marker comments inside the file
+- [ ] **HOOK-08**: The hook strips lines from the commit message using the SAME case-insensitive `Co-authored-by:` matching semantics as the existing drop flow — trailing whitespace and trailer key case must match the parser's behavior
+- [ ] **HOOK-09**: When the user picks "Manage", the tool shows a fuzzy-filterable list of configured strip emails; selecting an entry removes it from the list and rewrites the hook file
+- [ ] **HOOK-10**: Removing the last entry from the strip list deletes the hook file entirely — no empty marker file is left behind
+- [ ] **HOOK-11**: Both "Add" and "Manage" flows end on a success screen showing the resulting strip-list state (e.g. "Hook installed — stripping 2 emails: a@x.com, b@y.com" or "Hook removed — no entries remain")
+- [ ] **HOOK-12**: Hook install/manage operations do NOT trigger the existing stash/worktree pre-flight blockers (SAFE-01, SAFE-02) — installing a hook does not rewrite history
+
+## v1.0 Requirements — Shipped 2026-05-20
 
 ### Core
 
-- [ ] **CORE-01**: User is presented with a two-option main menu on launch: "Rename an author" and "Drop a co-author"
-- [ ] **CORE-02**: Tool auto-detects the git repo from the current working directory; shows a clear error and exits if not inside a git repo
-- [ ] **CORE-03**: All git operations use the git2 crate (libgit2, vendored, no SSH/HTTPS features); no git binary is called at runtime
+- [x] **CORE-01**: User is presented with a two-option main menu on launch: "Rename an author" and "Drop a co-author"
+- [x] **CORE-02**: Tool auto-detects the git repo from the current working directory; shows a clear error and exits if not inside a git repo
+- [x] **CORE-03**: All git operations use the git2 crate (libgit2, vendored, no SSH/HTTPS features); no git binary is called at runtime
 
 ### Rename Author
 
-- [ ] **RENAME-01**: User sees a list of all primary commit authors (Name + Email pairs) with commit count per identity, filterable with fuzzy search
-- [ ] **RENAME-02**: After selecting the source author, user enters the new name and new email via a two-field free-text form (not a second list picker)
-- [ ] **RENAME-03**: Tool rewrites all matching commits across all branches, updating both the author and committer fields when the committer matches the old author identity
-- [ ] **RENAME-04**: Annotated tag objects pointing at rewritten commits are recreated (not just the ref pointer — the tag object itself is updated with the new target SHA)
-- [ ] **RENAME-05**: Before rewriting, tool shows the exact count of affected commits and prompts for confirmation (Y/n) that the user must explicitly answer
+- [x] **RENAME-01**: User sees a list of all primary commit authors (Name + Email pairs) with commit count per identity, filterable with fuzzy search
+- [x] **RENAME-02**: After selecting the source author, user enters the new name and new email via a two-field free-text form (not a second list picker)
+- [x] **RENAME-03**: Tool rewrites all matching commits across all branches, updating both the author and committer fields when the committer matches the old author identity
+- [x] **RENAME-04**: Annotated tag objects pointing at rewritten commits are recreated (not just the ref pointer — the tag object itself is updated with the new target SHA)
+- [x] **RENAME-05**: Before rewriting, tool shows the exact count of affected commits and prompts for confirmation (Y/n) that the user must explicitly answer
 
 ### Drop Co-author
 
-- [ ] **DROP-01**: User sees a list of all unique co-authors from Co-authored-by trailers across all commits, with commit count per identity, filterable with fuzzy search
-- [ ] **DROP-02**: Tool removes the selected co-author from all Co-authored-by trailers using case-insensitive key matching; removes all occurrences within a single commit if duplicated
-- [ ] **DROP-03**: All other Co-authored-by entries and other commit metadata (tree, timestamps, other trailers, commit message body) are preserved byte-for-byte
-- [ ] **DROP-04**: Before rewriting, tool shows the exact count of affected commits and prompts for confirmation (Y/n) that the user must explicitly answer
+- [x] **DROP-01**: User sees a list of all unique co-authors from Co-authored-by trailers across all commits, with commit count per identity, filterable with fuzzy search
+- [x] **DROP-02**: Tool removes the selected co-author from all Co-authored-by trailers using case-insensitive key matching; removes all occurrences within a single commit if duplicated
+- [x] **DROP-03**: All other Co-authored-by entries and other commit metadata (tree, timestamps, other trailers, commit message body) are preserved byte-for-byte
+- [x] **DROP-04**: Before rewriting, tool shows the exact count of affected commits and prompts for confirmation (Y/n) that the user must explicitly answer
 
 ### Safety
 
-- [ ] **SAFE-01**: Tool blocks the operation (with a descriptive error) if stash entries are detected — stash references commits that will be orphaned after rewrite
-- [ ] **SAFE-02**: Tool blocks the operation (with a descriptive error) if linked worktrees are detected — locked branches cannot be updated
-- [ ] **SAFE-03**: Tool shows a non-blocking warning if any affected commits have GPG or SSH signatures — rewriting invalidates them; user can still proceed
-- [ ] **SAFE-04**: Tool shows a non-blocking warning if annotated tags point at commits being rewritten — the tag objects will be recreated; user can still proceed
-- [ ] **SAFE-05**: Tool shows a non-blocking warning if refs/notes/commits exists — notes reference old SHAs and will be orphaned; user can still proceed
+- [x] **SAFE-01**: Tool blocks the operation (with a descriptive error) if stash entries are detected — stash references commits that will be orphaned after rewrite
+- [x] **SAFE-02**: Tool blocks the operation (with a descriptive error) if linked worktrees are detected — locked branches cannot be updated
+- [x] **SAFE-03**: Tool shows a non-blocking warning if any affected commits have GPG or SSH signatures — rewriting invalidates them; user can still proceed
+- [x] **SAFE-04**: Tool shows a non-blocking warning if annotated tags point at commits being rewritten — the tag objects will be recreated; user can still proceed
+- [x] **SAFE-05**: Tool shows a non-blocking warning if refs/notes/commits exists — notes reference old SHAs and will be orphaned; user can still proceed
 
 ### Post-Rewrite Output
 
-- [ ] **OUT-01**: After a successful rewrite, tool shows the count of rewritten commits and a force-push reminder using the detected remote name and `git push --force-with-lease --all`
+- [x] **OUT-01**: After a successful rewrite, tool shows the count of rewritten commits and a force-push reminder using the detected remote name and `git push --force-with-lease --all`
 
 ### Distribution
 
@@ -46,7 +63,7 @@
 - [x] **DIST-04**: Single curl command detects OS/arch, downloads the correct binary from GitHub Releases, verifies SHA256 checksum, and runs the tool
 - [x] **DIST-05**: GitHub Actions CI builds and uploads release binaries on git tag push
 
-## v2 Requirements
+## Future Requirements (deferred)
 
 ### Extended Operations
 
@@ -61,6 +78,12 @@
 
 - **EXT-04**: Windows binary support with PowerShell download command
 
+### Extended Hook Support
+
+- **EXT-05**: Global hook installation via `core.hooksPath` (repo-local only in v1.1)
+- **EXT-06**: Built-in AI author pattern list (Claude, Copilot, Cursor, GPT…) for one-click "strip all known AI co-authors"
+- **EXT-07**: Append the tool's strip block to a pre-existing non-tool-written `commit-msg` hook (refuse-to-overwrite in v1.1)
+
 ## Out of Scope
 
 | Feature | Reason |
@@ -72,40 +95,54 @@
 | Dry-run flag | Confirmation prompt + commit count serves the same purpose for v1 |
 | Mailmap integration | Different tool — mailmap is display-layer only; this tool modifies commit objects |
 | Undo/rollback command | git reflog provides recovery; document this in post-rewrite output |
+| post-commit hook for stripping (v1.1) | Would force a `git commit --amend` and change SHA after the fact; `commit-msg` does it cleanly before the commit object is created |
+| Built-in AI author list (v1.1) | User picks from observed co-authors only; avoids stale curated list and false positives |
+| Global hooks via `core.hooksPath` (v1.1) | Repo-local hooks are simpler and match the tool's per-repo operation model |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | Phase 3 | Pending |
-| CORE-02 | Phase 1 | Pending |
-| CORE-03 | Phase 1 | Pending |
-| RENAME-01 | Phase 3 | Pending |
-| RENAME-02 | Phase 3 | Pending |
-| RENAME-03 | Phase 2 | Pending |
-| RENAME-04 | Phase 2 | Pending |
-| RENAME-05 | Phase 3 | Pending |
-| DROP-01 | Phase 3 | Pending |
-| DROP-02 | Phase 2 | Pending |
-| DROP-03 | Phase 2 | Pending |
-| DROP-04 | Phase 3 | Pending |
-| SAFE-01 | Phase 1 | Pending |
-| SAFE-02 | Phase 1 | Pending |
-| SAFE-03 | Phase 3 | Pending |
-| SAFE-04 | Phase 3 | Pending |
-| SAFE-05 | Phase 3 | Pending |
-| OUT-01 | Phase 3 | Pending |
+| CORE-01 | Phase 3 | Complete |
+| CORE-02 | Phase 1 | Complete |
+| CORE-03 | Phase 1 | Complete |
+| RENAME-01 | Phase 3 | Complete |
+| RENAME-02 | Phase 3 | Complete |
+| RENAME-03 | Phase 2 | Complete |
+| RENAME-04 | Phase 2 | Complete |
+| RENAME-05 | Phase 3 | Complete |
+| DROP-01 | Phase 3 | Complete |
+| DROP-02 | Phase 2 | Complete |
+| DROP-03 | Phase 2 | Complete |
+| DROP-04 | Phase 3 | Complete |
+| SAFE-01 | Phase 1 | Complete |
+| SAFE-02 | Phase 1 | Complete |
+| SAFE-03 | Phase 3 | Complete |
+| SAFE-04 | Phase 3 | Complete |
+| SAFE-05 | Phase 3 | Complete |
+| OUT-01 | Phase 3 | Complete |
 | DIST-01 | Phase 4 | Complete |
 | DIST-02 | Phase 4 | Complete |
 | DIST-03 | Phase 4 | Complete |
 | DIST-04 | Phase 4 | Complete |
 | DIST-05 | Phase 4 | Complete |
+| HOOK-01 | Phase TBD | Pending |
+| HOOK-02 | Phase TBD | Pending |
+| HOOK-03 | Phase TBD | Pending |
+| HOOK-04 | Phase TBD | Pending |
+| HOOK-05 | Phase TBD | Pending |
+| HOOK-06 | Phase TBD | Pending |
+| HOOK-07 | Phase TBD | Pending |
+| HOOK-08 | Phase TBD | Pending |
+| HOOK-09 | Phase TBD | Pending |
+| HOOK-10 | Phase TBD | Pending |
+| HOOK-11 | Phase TBD | Pending |
+| HOOK-12 | Phase TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 23 total
-- Mapped to phases: 23
-- Unmapped: 0 ✓
+- v1.0 requirements: 23 total (mapped, shipped)
+- v1.1 requirements: 12 total (mapping to be filled by roadmapper)
 
 ---
 *Requirements defined: 2026-05-20*
-*Last updated: 2026-05-20 after initial definition*
+*Last updated: 2026-05-21 after v1.1 requirements added*
