@@ -5,7 +5,7 @@ milestone_name: Auto-Strip Co-Author Hook
 status: executing
 stopped_at: "v1.1 roadmap written (Phases 5–6 appended); STATE.md updated. Next: `/gsd:plan-phase 5`"
 last_updated: "2026-05-21T06:08:51.119Z"
-last_activity: 2026-05-21 -- Phase 06 execution started
+last_activity: 2026-05-24 -- Completed quick task 260524-cbk: Fix cmd/option+backspace in TUI text fields
 progress:
   total_phases: 2
   completed_phases: 1
@@ -93,6 +93,7 @@ None yet.
 | 260520-sfz | Fix not-an-interactive-terminal error when running git-author-reformer directly | 2026-05-20 | 006cb1d | | [260520-sfz-fix-not-an-interactive-terminal-error-wh](.planning/quick/260520-sfz-fix-not-an-interactive-terminal-error-wh/) |
 | 260520-scm | add 'c' shortcut to copy push command on Success screen | 2026-05-20 | 225c4e5 | | [260520-scm-when-the-following-prompt-occurs-run-the](.planning/quick/260520-scm-when-the-following-prompt-occurs-run-the/) |
 | 260524-kgx | Add author selection list to rename form screen | 2026-05-24 | bc1b400 | Needs Review | [260524-kgx-add-author-selection-list-to-rename-form](.planning/quick/260524-kgx-add-author-selection-list-to-rename-form/) |
+| 260524-cbk | Fix cmd+backspace and option+backspace not working in TUI text fields | 2026-05-24 | 86ef359 | Complete | [260524-cbk-fix-cmd-option-backspace-not-working](.planning/quick/260524-cbk-fix-cmd-option-backspace-not-working/) |
 
 ## Deferred Items
 
