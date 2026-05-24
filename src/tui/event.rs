@@ -217,9 +217,11 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             ..
         } => match key {
             KeyCode::Esc => app.screen = Screen::MainMenu { selected: 0 }, // v1: no back-stack
-            KeyCode::Tab | KeyCode::BackTab => {
-                let toggled = draft.focused.clone().toggle();
-                draft.focused = toggled;
+            KeyCode::Tab => {
+                draft.focused = draft.focused.clone().toggle();
+            }
+            KeyCode::BackTab => {
+                draft.focused = draft.focused.clone().toggle_back();
             }
             KeyCode::Enter if matches!(draft.focused, FormField::List) => {
                 // List focused: autofill from highlighted author without submitting.

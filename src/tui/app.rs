@@ -108,6 +108,14 @@ impl FormField {
             Self::List => Self::Name,
         }
     }
+
+    pub fn toggle_back(self) -> Self {
+        match self {
+            Self::Name => Self::List,
+            Self::Email => Self::Name,
+            Self::List => Self::Email,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -282,6 +290,16 @@ mod tests {
         assert!(matches!(FormField::Name.toggle(), FormField::Email));
         assert!(matches!(FormField::Email.toggle(), FormField::List));
         assert!(matches!(FormField::List.toggle(), FormField::Name));
+    }
+
+    #[test]
+    fn test_form_field_toggle_back() {
+        // Shift+Tab reverses the 3-way cycle: Name -> List -> Email -> Name.
+        // Without a distinct reverse, Shift+Tab on the rename form would move
+        // forward, which no form-UI user expects (WR-01).
+        assert!(matches!(FormField::Name.toggle_back(), FormField::List));
+        assert!(matches!(FormField::List.toggle_back(), FormField::Email));
+        assert!(matches!(FormField::Email.toggle_back(), FormField::Name));
     }
 
     #[test]
