@@ -51,6 +51,21 @@ fn copy_via_osc52(text: &str) {
 }
 
 pub fn handle_key(app: &mut App, key: KeyCode, mods: KeyModifiers) {
+    // Universal readline bindings: Ctrl+U clears the line, Ctrl+W deletes the
+    // last word. Cmd+Backspace / Option+Backspace only deliver SUPER/ALT in
+    // terminals that support the keyboard enhancement protocol, but Ctrl+U/W
+    // arrive as control chars in every terminal. Translate them to the
+    // equivalent modified Backspace so every text field handles them through
+    // the existing backspace_edit path.
+    let (key, mods) = match key {
+        KeyCode::Char('u') | KeyCode::Char('U') if mods.contains(KeyModifiers::CONTROL) => {
+            (KeyCode::Backspace, KeyModifiers::SUPER)
+        }
+        KeyCode::Char('w') | KeyCode::Char('W') if mods.contains(KeyModifiers::CONTROL) => {
+            (KeyCode::Backspace, KeyModifiers::ALT)
+        }
+        _ => (key, mods),
+    };
     match &mut app.screen {
         Screen::MainMenu { selected } => match key {
             KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1) % 4,
@@ -785,6 +800,45 @@ mod tests {
         handle_key(&mut app, KeyCode::Backspace, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert_eq!(draft.new_email, "alice@"),
+            _ => panic!("expected RenameForm"),
+        }
+    }
+
+    #[test]
+    fn test_rename_form_ctrl_u_clears_focused_field() {
+        // Ctrl+U is the universal "clear line" binding and must work in every
+        // terminal, unlike Cmd+Backspace which needs the enhancement protocol.
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[],
+        );
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::Name;
+            draft.new_name = "Alice Smith".to_string();
+        }
+        handle_key(&mut app, KeyCode::Char('u'), KeyModifiers::CONTROL);
+        match &app.screen {
+            Screen::RenameForm { draft, .. } => assert_eq!(draft.new_name, ""),
+            _ => panic!("expected RenameForm"),
+        }
+    }
+
+    #[test]
+    fn test_rename_form_ctrl_w_deletes_last_word() {
+        // Ctrl+W is the universal "delete word" binding.
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[],
+        );
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::Name;
+            draft.new_name = "Alice Smith".to_string();
+        }
+        handle_key(&mut app, KeyCode::Char('w'), KeyModifiers::CONTROL);
+        match &app.screen {
+            Screen::RenameForm { draft, .. } => assert_eq!(draft.new_name, "Alice "),
             _ => panic!("expected RenameForm"),
         }
     }

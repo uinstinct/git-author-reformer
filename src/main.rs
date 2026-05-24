@@ -28,10 +28,31 @@ fn run() -> Result<(), error::AppError> {
     // 4. ratatui::init() installs panic hook + raw mode + alternate screen.
     let mut terminal = ratatui::init();
 
+    // 4b. Enable the keyboard enhancement protocol so terminals that support it
+    //     (kitty, WezTerm, Ghostty, iTerm2 with CSI-u) report modifiers on keys
+    //     like Backspace — required for Cmd+Backspace / Option+Backspace to be
+    //     distinguishable. Terminals without support (Terminal.app, Warp) simply
+    //     return Ok(false); Ctrl+U / Ctrl+W still work there via control chars.
+    use crossterm::event::{
+        KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    };
+    let keyboard_enhanced =
+        matches!(crossterm::terminal::supports_keyboard_enhancement(), Ok(true));
+    if keyboard_enhanced {
+        let _ = crossterm::execute!(
+            std::io::stdout(),
+            PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+        );
+    }
+
     // 5. Run the TUI; capture result so we can ALWAYS call restore().
     let result = tui::run_with_terminal(&mut terminal, repo, term_flag);
 
-    // 6. Restore on EVERY exit path — happy and error.
+    // 6. Restore on EVERY exit path — happy and error. Pop the enhancement
+    //    flags before restore so the terminal is left in its original mode.
+    if keyboard_enhanced {
+        let _ = crossterm::execute!(std::io::stdout(), PopKeyboardEnhancementFlags);
+    }
     ratatui::restore();
 
     // 7. Propagate after restore so terminal is clean before printing.
