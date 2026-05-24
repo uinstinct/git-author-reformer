@@ -594,3 +594,70 @@ fn render_hook_removed(frame: &mut Frame, area: Rect) {
         area,
     );
 }
+
+#[cfg(test)]
+mod render_tests {
+    use super::*;
+    use crate::tui::app::App;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    fn buffer_text(width: u16, height: u16) -> String {
+        let dir = tempfile::TempDir::new().unwrap();
+        let repo = git2::Repository::init_bare(dir.path()).unwrap();
+        let mut app = App::new(repo);
+
+        let source = AuthorIdentity {
+            name: "Alice".into(),
+            email: "alice@example.com".into(),
+            commit_count: 3,
+        };
+        let others = [
+            AuthorIdentity {
+                name: "Bob".into(),
+                email: "bob@example.com".into(),
+                commit_count: 2,
+            },
+            AuthorIdentity {
+                name: "Carol".into(),
+                email: "carol@example.com".into(),
+                commit_count: 1,
+            },
+        ];
+        let mut nucleo = crate::tui::app::build_author_nucleo(&others);
+        let matched = crate::tui::app::apply_filter(&mut nucleo, "");
+        app.screen = Screen::RenameForm {
+            source,
+            draft: RenameDraft::default(),
+            items: others.to_vec(),
+            filter: String::new(),
+            matched,
+            nucleo,
+            selected: 0,
+        };
+
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        let buf = terminal.backend().buffer();
+        (0..buf.area.height)
+            .map(|y| {
+                (0..buf.area.width)
+                    .map(|x| buf[(x, y)].symbol().to_string())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn rename_form_renders_embedded_author_list() {
+        // Regression guard: the embedded author list on the rename screen must paint
+        // actual author rows, not just an empty bordered box. The prior unit test only
+        // asserted items.len(); it could not catch an empty render.
+        let text = buffer_text(80, 24);
+        assert!(text.contains("Authors (2 match)"), "list title must paint; got:\n{text}");
+        assert!(text.contains("Bob"), "author Bob must paint; got:\n{text}");
+        assert!(text.contains("Carol"), "author Carol must paint; got:\n{text}");
+    }
+}
