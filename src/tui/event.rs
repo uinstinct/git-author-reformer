@@ -165,7 +165,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             _ => {}
         },
         Screen::AuthorList {
-            items: _,
+            items,
             filter,
             matched,
             nucleo,
@@ -180,9 +180,18 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             KeyCode::Enter => {
                 if let Some(src) = matched.get(*selected).cloned() {
+                    let rest: Vec<crate::git::types::AuthorIdentity> =
+                        items.iter().filter(|a| **a != src).cloned().collect();
+                    let mut rename_nucleo = build_author_nucleo(&rest);
+                    let matched_list = apply_filter(&mut rename_nucleo, "");
                     app.screen = Screen::RenameForm {
                         source: src,
                         draft: RenameDraft::default(),
+                        items: rest,
+                        filter: String::new(),
+                        matched: matched_list,
+                        nucleo: rename_nucleo,
+                        selected: 0,
                     };
                 }
             }
@@ -198,11 +207,27 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
             }
             _ => {}
         },
-        Screen::RenameForm { source, draft } => match key {
+        Screen::RenameForm {
+            source,
+            draft,
+            filter,
+            matched,
+            nucleo,
+            selected,
+            ..
+        } => match key {
             KeyCode::Esc => app.screen = Screen::MainMenu { selected: 0 }, // v1: no back-stack
             KeyCode::Tab | KeyCode::BackTab => {
                 let toggled = draft.focused.clone().toggle();
                 draft.focused = toggled;
+            }
+            KeyCode::Enter if matches!(draft.focused, FormField::List) => {
+                // List focused: autofill from highlighted author without submitting.
+                if let Some(a) = matched.get(*selected) {
+                    draft.new_name = a.name.clone();
+                    draft.new_email = a.email.clone();
+                }
+                // Do NOT change screen — stay on RenameForm.
             }
             KeyCode::Enter if draft.is_complete() => {
                 // Clone source before the borrow ends so we can assign app.screen
@@ -224,6 +249,12 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                     Err(e) => app.screen = Screen::Err(e.to_string()),
                 }
             }
+            KeyCode::Up if matches!(draft.focused, FormField::List) && !matched.is_empty() => {
+                *selected = (*selected + matched.len() - 1) % matched.len();
+            }
+            KeyCode::Down if matches!(draft.focused, FormField::List) && !matched.is_empty() => {
+                *selected = (*selected + 1) % matched.len();
+            }
             KeyCode::Backspace => match draft.focused {
                 FormField::Name => {
                     draft.new_name.pop();
@@ -231,10 +262,20 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                 FormField::Email => {
                     draft.new_email.pop();
                 }
+                FormField::List => {
+                    filter.pop();
+                    *matched = apply_filter(nucleo, filter);
+                    *selected = 0;
+                }
             },
             KeyCode::Char(c) => match draft.focused {
                 FormField::Name => draft.new_name.push(c),
                 FormField::Email => draft.new_email.push(c),
+                FormField::List => {
+                    filter.push(c);
+                    *matched = apply_filter(nucleo, filter);
+                    *selected = 0;
+                }
             },
             _ => {}
         },
@@ -486,6 +527,31 @@ mod tests {
         }
     }
 
+    /// Builds a widened Screen::RenameForm for tests.
+    /// `source` is the author being renamed; `others` is a slice of (name, email) pairs
+    /// for the embedded list (already excluded from source by the caller or transition).
+    fn make_rename_form_screen(source: AuthorIdentity, others: &[(&str, &str)]) -> Screen {
+        let items: Vec<AuthorIdentity> = others
+            .iter()
+            .map(|(n, e)| AuthorIdentity {
+                name: n.to_string(),
+                email: e.to_string(),
+                commit_count: 1,
+            })
+            .collect();
+        let mut nucleo = build_author_nucleo(&items);
+        let matched = apply_filter(&mut nucleo, "");
+        Screen::RenameForm {
+            source,
+            draft: RenameDraft::default(),
+            items,
+            filter: String::new(),
+            matched,
+            nucleo,
+            selected: 0,
+        }
+    }
+
     // ---- Existing tests from Plan 03-02 (kept intact) ----
 
     #[test]
@@ -627,7 +693,7 @@ mod tests {
         app.screen = make_author_list_screen(&["Alice", "Bob"]);
         handle_key(&mut app, KeyCode::Enter);
         match &app.screen {
-            Screen::RenameForm { source, draft } => {
+            Screen::RenameForm { source, draft, .. } => {
                 assert_eq!(source.name, "Alice");
                 assert!(matches!(draft.focused, FormField::Name));
             }
@@ -646,19 +712,20 @@ mod tests {
 
     #[test]
     fn test_rename_form_tab_toggles_focused_field() {
-        // RENAME-02: Tab switches focus between Name and Email fields.
+        // RENAME-02: Tab cycles Name -> Email -> List -> Name (3-way).
         let (_dir, mut app) = make_test_app();
-        app.screen = Screen::RenameForm {
-            source: AuthorIdentity {
-                name: "Alice".into(),
-                email: "alice@x".into(),
-                commit_count: 1,
-            },
-            draft: RenameDraft::default(),
-        };
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[],
+        );
         handle_key(&mut app, KeyCode::Tab);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::Email)),
+            _ => panic!("expected RenameForm"),
+        }
+        handle_key(&mut app, KeyCode::Tab);
+        match &app.screen {
+            Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::List)),
             _ => panic!("expected RenameForm"),
         }
         handle_key(&mut app, KeyCode::Tab);
@@ -672,14 +739,10 @@ mod tests {
     fn test_rename_form_printable_appends_to_focused_field() {
         // RENAME-02: typing a char appends to the currently focused field.
         let (_dir, mut app) = make_test_app();
-        app.screen = Screen::RenameForm {
-            source: AuthorIdentity {
-                name: "Alice".into(),
-                email: "alice@x".into(),
-                commit_count: 1,
-            },
-            draft: RenameDraft::default(),
-        };
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[],
+        );
         handle_key(&mut app, KeyCode::Char('A'));
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert_eq!(draft.new_name, "A"),
@@ -691,19 +754,15 @@ mod tests {
     fn test_rename_form_backspace_pops_focused_field() {
         // RENAME-02: Backspace removes the last character from the focused field.
         let (_dir, mut app) = make_test_app();
-        let draft = RenameDraft {
-            focused: FormField::Email,
-            new_email: "alice@x".to_string(),
-            ..RenameDraft::default()
-        };
-        app.screen = Screen::RenameForm {
-            source: AuthorIdentity {
-                name: "Alice".into(),
-                email: "alice@x".into(),
-                commit_count: 1,
-            },
-            draft,
-        };
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[],
+        );
+        // Set Email focus and pre-fill email field.
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::Email;
+            draft.new_email = "alice@x".to_string();
+        }
         handle_key(&mut app, KeyCode::Backspace);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert_eq!(draft.new_email, "alice@"),
@@ -715,14 +774,10 @@ mod tests {
     fn test_rename_form_enter_with_incomplete_draft_does_nothing() {
         // RENAME-02: Enter with empty name does not transition.
         let (_dir, mut app) = make_test_app();
-        app.screen = Screen::RenameForm {
-            source: AuthorIdentity {
-                name: "Alice".into(),
-                email: "alice@x".into(),
-                commit_count: 1,
-            },
-            draft: RenameDraft::default(), // both fields empty
-        };
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[],
+        );
         handle_key(&mut app, KeyCode::Enter);
         assert!(matches!(app.screen, Screen::RenameForm { .. }));
     }
@@ -732,19 +787,14 @@ mod tests {
         // RENAME-05: Enter with both fields filled transitions to Preview with scan data.
         // Uses a bare repo so scan_rename returns Ok(RewritePreview { affected_count: 0, .. }).
         let (_dir, mut app) = make_test_app();
-        let draft = RenameDraft {
-            new_name: "Bob".to_string(),
-            new_email: "bob@example.com".to_string(),
-            ..RenameDraft::default()
-        };
-        app.screen = Screen::RenameForm {
-            source: AuthorIdentity {
-                name: "Alice".into(),
-                email: "alice@x".into(),
-                commit_count: 1,
-            },
-            draft,
-        };
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[],
+        );
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.new_name = "Bob".to_string();
+            draft.new_email = "bob@example.com".to_string();
+        }
         handle_key(&mut app, KeyCode::Enter);
         assert!(matches!(
             app.screen,
@@ -759,14 +809,10 @@ mod tests {
     fn test_rename_form_esc_returns_to_main_menu_v1() {
         // v1: no back-stack — Esc from RenameForm goes to MainMenu (not AuthorList).
         let (_dir, mut app) = make_test_app();
-        app.screen = Screen::RenameForm {
-            source: AuthorIdentity {
-                name: "Alice".into(),
-                email: "alice@x".into(),
-                commit_count: 1,
-            },
-            draft: RenameDraft::default(),
-        };
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[],
+        );
         handle_key(&mut app, KeyCode::Esc);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
@@ -1513,6 +1559,165 @@ mod tests {
                 "unexpected screen variant after Manage on stash repo: {:?}",
                 std::mem::discriminant(other)
             ),
+        }
+    }
+
+    // ---- Behavior tests for 260524-kgx (3-way Tab, autofill, filter routing, empty list, source exclusion) ----
+
+    #[test]
+    fn test_rename_form_tab_cycles_through_list() {
+        // The focus cycle must include List as a third target so users can reach
+        // the embedded author list without leaving the form. Tab from Email -> List,
+        // Tab from List -> Name (completes the 3-way cycle).
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[("Bob", "bob@x")],
+        );
+        // Name -> Email
+        handle_key(&mut app, KeyCode::Tab);
+        match &app.screen {
+            Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::Email)),
+            _ => panic!("expected RenameForm"),
+        }
+        // Email -> List
+        handle_key(&mut app, KeyCode::Tab);
+        match &app.screen {
+            Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::List)),
+            _ => panic!("expected RenameForm"),
+        }
+        // List -> Name
+        handle_key(&mut app, KeyCode::Tab);
+        match &app.screen {
+            Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::Name)),
+            _ => panic!("expected RenameForm"),
+        }
+    }
+
+    #[test]
+    fn test_rename_form_list_enter_autofills_and_stays() {
+        // Selecting from the embedded list must autofill both fields WITHOUT submitting.
+        // Submitting would transition to Preview, breaking the "still editable" contract.
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[("Bob", "bob@example.com")],
+        );
+        // Focus the list
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::List;
+        }
+        // Enter on the first (only) matched author
+        handle_key(&mut app, KeyCode::Enter);
+        // Must stay on RenameForm (not transition to Preview)
+        match &app.screen {
+            Screen::RenameForm { draft, .. } => {
+                assert_eq!(draft.new_name, "Bob", "autofill must set new_name");
+                assert_eq!(draft.new_email, "bob@example.com", "autofill must set new_email");
+            }
+            _ => panic!("expected RenameForm after list Enter, not Preview or other"),
+        }
+    }
+
+    #[test]
+    fn test_rename_form_list_typing_filters_not_text_fields() {
+        // When the List is focused, typed characters must update the filter and matched
+        // items, NOT the name/email text fields. This ensures typing routes correctly.
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_rename_form_screen(
+            AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
+            &[("Bob", "bob@x"), ("Carol", "carol@x")],
+        );
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::List;
+        }
+        handle_key(&mut app, KeyCode::Char('b'));
+        match &app.screen {
+            Screen::RenameForm { draft, filter, .. } => {
+                assert_eq!(filter, "b", "filter must reflect typed char");
+                assert!(draft.new_name.is_empty(), "new_name must not change when List focused");
+                assert!(draft.new_email.is_empty(), "new_email must not change when List focused");
+            }
+            _ => panic!("expected RenameForm"),
+        }
+        handle_key(&mut app, KeyCode::Backspace);
+        match &app.screen {
+            Screen::RenameForm { filter, .. } => {
+                assert!(filter.is_empty(), "filter must shrink on Backspace");
+            }
+            _ => panic!("expected RenameForm"),
+        }
+    }
+
+    #[test]
+    fn test_rename_form_empty_excluded_list_still_submittable() {
+        // When the source is the only author (excluded list is empty), List focus must
+        // be reachable (fixed 3-way cycle) and Enter on List must be a no-op.
+        // The form must still be submittable via Name/Email focus.
+        let (_dir, mut app) = make_test_app_with_commits();
+        // Navigate to AuthorList then select Alice -> RenameForm with empty excluded list
+        handle_key(&mut app, KeyCode::Enter); // -> AuthorList (only Alice)
+        handle_key(&mut app, KeyCode::Enter); // select Alice -> RenameForm
+        // Verify we're on RenameForm
+        assert!(matches!(app.screen, Screen::RenameForm { .. }), "should be on RenameForm");
+        // Check the excluded list is empty (single-author repo)
+        match &app.screen {
+            Screen::RenameForm { matched, .. } => {
+                assert!(matched.is_empty(), "excluded list must be empty for single-author repo");
+            }
+            _ => panic!("expected RenameForm"),
+        }
+        // Tab to List focus — must not panic or skip
+        handle_key(&mut app, KeyCode::Tab); // Name -> Email
+        handle_key(&mut app, KeyCode::Tab); // Email -> List
+        match &app.screen {
+            Screen::RenameForm { draft, .. } => {
+                assert!(matches!(draft.focused, FormField::List), "should reach List focus");
+            }
+            _ => panic!("expected RenameForm"),
+        }
+        // Enter on empty list is a no-op — stay on RenameForm, fields unchanged
+        handle_key(&mut app, KeyCode::Enter);
+        assert!(matches!(app.screen, Screen::RenameForm { .. }), "Enter on empty list must stay on RenameForm");
+        // Return to Name focus and fill in both fields, then submit
+        handle_key(&mut app, KeyCode::Tab); // List -> Name
+        for c in "NewAlice".chars() {
+            handle_key(&mut app, KeyCode::Char(c));
+        }
+        handle_key(&mut app, KeyCode::Tab); // Name -> Email
+        for c in "new@example.com".chars() {
+            handle_key(&mut app, KeyCode::Char(c));
+        }
+        handle_key(&mut app, KeyCode::Enter); // submit (is_complete() -> true)
+        assert!(
+            matches!(app.screen, Screen::Preview { .. }),
+            "complete form must submit to Preview even when list was empty"
+        );
+    }
+
+    #[test]
+    fn test_rename_form_excludes_source_author() {
+        // The embedded list must never contain the source being renamed — deduplication
+        // requires the list shows only OTHER authors to merge into.
+        let (_dir, mut app) = make_test_app();
+        app.screen = make_author_list_screen(&["Alice", "Bob", "Carol"]);
+        // Alice is selected (index 0); transition to RenameForm
+        handle_key(&mut app, KeyCode::Enter);
+        match &app.screen {
+            Screen::RenameForm { source, items, matched, .. } => {
+                let src_name = source.name.clone();
+                let src_email = source.email.clone();
+                assert!(
+                    !items.iter().any(|a| a.name == src_name && a.email == src_email),
+                    "source must not appear in items"
+                );
+                assert!(
+                    !matched.iter().any(|a| a.name == src_name && a.email == src_email),
+                    "source must not appear in matched"
+                );
+                assert_eq!(items.len(), 2, "two other authors remain after excluding source");
+            }
+            _ => panic!("expected RenameForm"),
         }
     }
 }
