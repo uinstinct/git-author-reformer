@@ -82,7 +82,7 @@ impl Default for RenameDraft {
         Self {
             new_name: String::new(),
             new_email: String::new(),
-            focused: FormField::Name,
+            focused: FormField::List,
         }
     }
 }
@@ -253,10 +253,10 @@ mod tests {
     }
 
     #[test]
-    fn test_rename_draft_default_focused_on_name() {
-        // RENAME-02: default form state has Name focused and empty strings.
+    fn test_rename_draft_default_focused_on_list() {
+        // RENAME-02: default form state has the author list focused and empty strings.
         let draft = RenameDraft::default();
-        assert!(matches!(draft.focused, FormField::Name));
+        assert!(matches!(draft.focused, FormField::List));
         assert!(draft.new_name.is_empty());
         assert!(draft.new_email.is_empty());
     }
