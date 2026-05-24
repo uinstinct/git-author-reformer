@@ -22,7 +22,7 @@ pub fn run_with_terminal(
         if crossterm::event::poll(Duration::from_millis(16))? {
             if let Event::Key(key) = crossterm::event::read()? {
                 if key.kind == KeyEventKind::Press {
-                    event::handle_key(&mut app, key.code);
+                    event::handle_key(&mut app, key.code, key.modifiers);
                 }
             }
         }

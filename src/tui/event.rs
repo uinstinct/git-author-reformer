@@ -3,7 +3,22 @@ use crate::tui::app::{
     build_coauthor_nucleo, build_strip_nucleo, App, FormField, MenuChoice, PendingOp, RenameDraft,
     Screen,
 };
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyModifiers};
+
+/// Apply a backspace edit to a text buffer, honoring modifier keys:
+/// Cmd (SUPER) clears the whole line, Option (ALT) deletes one word, otherwise
+/// a single character is removed.
+fn backspace_edit(s: &mut String, mods: KeyModifiers) {
+    if mods.contains(KeyModifiers::SUPER) {
+        s.clear();
+    } else if mods.contains(KeyModifiers::ALT) {
+        let trimmed = s.trim_end_matches(|c: char| c.is_whitespace());
+        let cut = trimmed.trim_end_matches(|c: char| !c.is_whitespace());
+        s.truncate(cut.len());
+    } else {
+        s.pop();
+    }
+}
 
 fn base64_encode(input: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -35,7 +50,7 @@ fn copy_via_osc52(text: &str) {
     let _ = std::io::stdout().flush();
 }
 
-pub fn handle_key(app: &mut App, key: KeyCode) {
+pub fn handle_key(app: &mut App, key: KeyCode, mods: KeyModifiers) {
     match &mut app.screen {
         Screen::MainMenu { selected } => match key {
             KeyCode::Down | KeyCode::Char('j') => *selected = (*selected + 1) % 4,
@@ -196,7 +211,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                 }
             }
             KeyCode::Backspace => {
-                filter.pop();
+                backspace_edit(filter, mods);
                 *matched = apply_filter(nucleo, filter);
                 *selected = 0;
             }
@@ -258,14 +273,10 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                 *selected = (*selected + 1) % matched.len();
             }
             KeyCode::Backspace => match draft.focused {
-                FormField::Name => {
-                    draft.new_name.pop();
-                }
-                FormField::Email => {
-                    draft.new_email.pop();
-                }
+                FormField::Name => backspace_edit(&mut draft.new_name, mods),
+                FormField::Email => backspace_edit(&mut draft.new_email, mods),
                 FormField::List => {
-                    filter.pop();
+                    backspace_edit(filter, mods);
                     *matched = apply_filter(nucleo, filter);
                     *selected = 0;
                 }
@@ -347,7 +358,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                 }
             }
             KeyCode::Backspace => {
-                filter.pop();
+                backspace_edit(filter, mods);
                 *matched = apply_coauthor_filter(nucleo, filter);
                 *selected = 0;
             }
@@ -401,7 +412,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                 *selected = 0;
             }
             KeyCode::Backspace => {
-                filter.pop();
+                backspace_edit(filter, mods);
                 *matched = apply_coauthor_filter(nucleo, filter);
                 *selected = 0;
             }
@@ -451,7 +462,7 @@ pub fn handle_key(app: &mut App, key: KeyCode) {
                 *selected = 0;
             }
             KeyCode::Backspace => {
-                filter.pop();
+                backspace_edit(filter, mods);
                 *matched = apply_strip_filter(nucleo, filter);
                 *selected = 0;
             }
@@ -560,13 +571,13 @@ mod tests {
     fn test_main_menu_down_increments_selected() {
         // CORE-01: keyboard navigation must cycle four options; Down from 3 wraps to 0.
         let (_dir, mut app) = make_test_app();
-        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 1 }));
-        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 2 }));
-        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 3 }));
-        handle_key(&mut app, KeyCode::Down);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
@@ -574,9 +585,9 @@ mod tests {
     fn test_main_menu_up_decrements_with_wrap() {
         // CORE-01: up arrow wraps the four-option list; Up from 0 wraps to 3.
         let (_dir, mut app) = make_test_app();
-        handle_key(&mut app, KeyCode::Up);
+        handle_key(&mut app, KeyCode::Up, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 3 }));
-        handle_key(&mut app, KeyCode::Up);
+        handle_key(&mut app, KeyCode::Up, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 2 }));
     }
 
@@ -584,9 +595,9 @@ mod tests {
     fn test_main_menu_j_k_same_as_down_up() {
         // CORE-01: vim bindings j/k behave identically to Down/Up.
         let (_dir, mut app) = make_test_app();
-        handle_key(&mut app, KeyCode::Char('j'));
+        handle_key(&mut app, KeyCode::Char('j'), KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 1 }));
-        handle_key(&mut app, KeyCode::Char('k'));
+        handle_key(&mut app, KeyCode::Char('k'), KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
@@ -602,8 +613,8 @@ mod tests {
         // DROP-01: bare repo has no refs so enumerate_coauthors returns Ok([]).
         // The screen transitions to CoAuthorList with empty items (not NotImplemented).
         let (_dir, mut app) = make_test_app(); // bare repo — no commits
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         // Bare repo with no refs: enumerate_coauthors returns Ok(vec![]) -> CoAuthorList
         assert!(matches!(app.screen, Screen::CoAuthorList { .. }));
     }
@@ -612,7 +623,7 @@ mod tests {
     fn test_main_menu_q_sets_should_exit() {
         // CORE-01: q exits cleanly.
         let (_dir, mut app) = make_test_app();
-        handle_key(&mut app, KeyCode::Char('q'));
+        handle_key(&mut app, KeyCode::Char('q'), KeyModifiers::NONE);
         assert!(app.should_exit);
     }
 
@@ -620,7 +631,7 @@ mod tests {
     fn test_main_menu_esc_sets_should_exit() {
         // CORE-01: Esc exits cleanly.
         let (_dir, mut app) = make_test_app();
-        handle_key(&mut app, KeyCode::Esc);
+        handle_key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
         assert!(app.should_exit);
     }
 
@@ -630,7 +641,7 @@ mod tests {
     fn test_main_menu_enter_rename_now_loads_author_list() {
         // RENAME-01: pressing Enter on 'Rename an author' loads the author list.
         let (_dir, mut app) = make_test_app_with_commits();
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::AuthorList { .. }));
     }
 
@@ -639,7 +650,7 @@ mod tests {
         // RENAME-01: typing a character filters the list; filter field and matched update.
         let (_dir, mut app) = make_test_app();
         app.screen = make_author_list_screen(&["Alice", "Bob"]);
-        handle_key(&mut app, KeyCode::Char('a'));
+        handle_key(&mut app, KeyCode::Char('a'), KeyModifiers::NONE);
         match &app.screen {
             Screen::AuthorList {
                 filter,
@@ -664,10 +675,10 @@ mod tests {
         let (_dir, mut app) = make_test_app();
         app.screen = make_author_list_screen(&["Alice", "Bob"]);
         // Set filter to "ali" manually then backspace
-        handle_key(&mut app, KeyCode::Char('a'));
-        handle_key(&mut app, KeyCode::Char('l'));
-        handle_key(&mut app, KeyCode::Char('i'));
-        handle_key(&mut app, KeyCode::Backspace);
+        handle_key(&mut app, KeyCode::Char('a'), KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Char('l'), KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Char('i'), KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Backspace, KeyModifiers::NONE);
         match &app.screen {
             Screen::AuthorList { filter, .. } => assert_eq!(filter, "al"),
             _ => panic!("expected AuthorList"),
@@ -679,9 +690,9 @@ mod tests {
         // RENAME-01: Down wraps from last item back to first.
         let (_dir, mut app) = make_test_app();
         app.screen = make_author_list_screen(&["Alice", "Bob", "Carol"]);
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Down); // should wrap to 0
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE); // should wrap to 0
         match &app.screen {
             Screen::AuthorList { selected, .. } => assert_eq!(*selected, 0),
             _ => panic!("expected AuthorList"),
@@ -693,11 +704,11 @@ mod tests {
         // RENAME-02: selecting an author opens the form, not a second list.
         let (_dir, mut app) = make_test_app();
         app.screen = make_author_list_screen(&["Alice", "Bob"]);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { source, draft, .. } => {
                 assert_eq!(source.name, "Alice");
-                assert!(matches!(draft.focused, FormField::Name));
+                assert!(matches!(draft.focused, FormField::List));
             }
             _ => panic!("expected RenameForm"),
         }
@@ -708,7 +719,7 @@ mod tests {
         // RENAME-01: Esc from AuthorList returns to MainMenu.
         let (_dir, mut app) = make_test_app();
         app.screen = make_author_list_screen(&["Alice"]);
-        handle_key(&mut app, KeyCode::Esc);
+        handle_key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
@@ -720,17 +731,20 @@ mod tests {
             AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
             &[],
         );
-        handle_key(&mut app, KeyCode::Tab);
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::Name;
+        }
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::Email)),
             _ => panic!("expected RenameForm"),
         }
-        handle_key(&mut app, KeyCode::Tab);
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::List)),
             _ => panic!("expected RenameForm"),
         }
-        handle_key(&mut app, KeyCode::Tab);
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::Name)),
             _ => panic!("expected RenameForm"),
@@ -745,7 +759,10 @@ mod tests {
             AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
             &[],
         );
-        handle_key(&mut app, KeyCode::Char('A'));
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::Name;
+        }
+        handle_key(&mut app, KeyCode::Char('A'), KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert_eq!(draft.new_name, "A"),
             _ => panic!("expected RenameForm"),
@@ -765,7 +782,7 @@ mod tests {
             draft.focused = FormField::Email;
             draft.new_email = "alice@x".to_string();
         }
-        handle_key(&mut app, KeyCode::Backspace);
+        handle_key(&mut app, KeyCode::Backspace, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert_eq!(draft.new_email, "alice@"),
             _ => panic!("expected RenameForm"),
@@ -780,7 +797,7 @@ mod tests {
             AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
             &[],
         );
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::RenameForm { .. }));
     }
 
@@ -797,7 +814,7 @@ mod tests {
             draft.new_name = "Bob".to_string();
             draft.new_email = "bob@example.com".to_string();
         }
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(matches!(
             app.screen,
             Screen::Preview {
@@ -815,7 +832,7 @@ mod tests {
             AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
             &[],
         );
-        handle_key(&mut app, KeyCode::Esc);
+        handle_key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
@@ -847,7 +864,7 @@ mod tests {
         // HOOK-12: Rename flow must call check_stash; stash repo must land on Screen::Err.
         let (_dir, mut app) = make_test_app_with_stash();
         // selected 0 = Rename; no navigation needed
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::Err(_)),
             "expected Screen::Err for Rename on stash repo, got something else"
@@ -858,8 +875,8 @@ mod tests {
     fn test_drop_with_stash_repo_hits_preflight_err() {
         // HOOK-12: Drop flow must call check_stash; stash repo must land on Screen::Err.
         let (_dir, mut app) = make_test_app_with_stash();
-        handle_key(&mut app, KeyCode::Down); // select Drop (index 1)
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE); // select Drop (index 1)
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::Err(_)),
             "expected Screen::Err for Drop on stash repo, got something else"
@@ -870,7 +887,7 @@ mod tests {
     fn test_rename_without_stash_repo_loads_author_list() {
         // HOOK-12 regression: clean repo (no stash) still reaches AuthorList on Rename.
         let (_dir, mut app) = make_test_app_with_commits();
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::AuthorList { .. }),
             "expected AuthorList for Rename on clean repo"
@@ -929,8 +946,8 @@ mod tests {
         // DROP-01: pressing Enter on 'Drop a co-author' loads the co-author list.
         let (_dir, mut app) = make_test_app_with_coauthors();
         // Navigate to "Drop a co-author" (index 1)
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::CoAuthorList { .. }));
     }
 
@@ -939,7 +956,7 @@ mod tests {
         // DROP-01: typing a character filters the co-author list.
         let (_dir, mut app) = make_test_app();
         app.screen = make_coauthor_list_screen(&[("Alice", "alice@x"), ("Bob", "bob@x")]);
-        handle_key(&mut app, KeyCode::Char('b'));
+        handle_key(&mut app, KeyCode::Char('b'), KeyModifiers::NONE);
         match &app.screen {
             Screen::CoAuthorList {
                 filter,
@@ -964,7 +981,7 @@ mod tests {
         // Uses a bare repo so scan_drop returns Ok(RewritePreview { affected_count: 0, .. }).
         let (_dir, mut app) = make_test_app();
         app.screen = make_coauthor_list_screen(&[("Bob", "bob@x")]);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::Preview {
                 op: PendingOp::Drop { target },
@@ -982,7 +999,7 @@ mod tests {
         // DROP-01: Esc from CoAuthorList returns to MainMenu.
         let (_dir, mut app) = make_test_app();
         app.screen = make_coauthor_list_screen(&[("Bob", "bob@x")]);
-        handle_key(&mut app, KeyCode::Esc);
+        handle_key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
@@ -991,7 +1008,7 @@ mod tests {
         // DROP-01: empty co-author list — Enter does nothing (no panic on empty index).
         let (_dir, mut app) = make_test_app();
         app.screen = make_coauthor_list_screen(&[]);
-        handle_key(&mut app, KeyCode::Enter); // must not panic
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // must not panic
         assert!(matches!(app.screen, Screen::CoAuthorList { .. }));
     }
 
@@ -1002,18 +1019,18 @@ mod tests {
         // RENAME-05: Enter on complete form calls scan_rename and stores RewritePreview in Preview.
         let (_dir, mut app) = make_test_app_with_commits();
         // First navigate to author list
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         // Select Alice (first entry) and press Enter
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         // Fill in rename form
         for c in "NewAlice".chars() {
-            handle_key(&mut app, KeyCode::Char(c));
+            handle_key(&mut app, KeyCode::Char(c), KeyModifiers::NONE);
         }
-        handle_key(&mut app, KeyCode::Tab);
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         for c in "newalice@example.com".chars() {
-            handle_key(&mut app, KeyCode::Char(c));
+            handle_key(&mut app, KeyCode::Char(c), KeyModifiers::NONE);
         }
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         // Should be in Preview with real scan data
         match &app.screen {
             Screen::Preview {
@@ -1052,11 +1069,11 @@ mod tests {
         // DROP-04: Enter on co-author list calls scan_drop and stores RewritePreview in Preview.
         let (_dir, mut app) = make_test_app_with_coauthors();
         // Navigate to Drop
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         // Should be in CoAuthorList; Bob is there
         // Press Enter to select Bob
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::Preview {
                 op: PendingOp::Drop { target },
@@ -1096,7 +1113,7 @@ mod tests {
             new_email: "someone@x".into(),
         };
         app.screen = Screen::Preview { op, scan };
-        handle_key(&mut app, KeyCode::Char('y'));
+        handle_key(&mut app, KeyCode::Char('y'), KeyModifiers::NONE);
         // Must transition to Success (not Executing, not stay on Preview)
         assert!(
             matches!(app.screen, Screen::Success { .. }),
@@ -1109,21 +1126,21 @@ mod tests {
         // RENAME-05: Y on Preview with Rename op calls rewrite_author and transitions to Success.
         let (_dir, mut app) = make_test_app_with_commits();
         // Go through the full flow to get a real Preview with real scan data
-        handle_key(&mut app, KeyCode::Enter); // -> AuthorList
-        handle_key(&mut app, KeyCode::Enter); // select Alice -> RenameForm
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // -> AuthorList
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // select Alice -> RenameForm
         for c in "Alice2".chars() {
-            handle_key(&mut app, KeyCode::Char(c));
+            handle_key(&mut app, KeyCode::Char(c), KeyModifiers::NONE);
         }
-        handle_key(&mut app, KeyCode::Tab);
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         for c in "alice2@example.com".chars() {
-            handle_key(&mut app, KeyCode::Char(c));
+            handle_key(&mut app, KeyCode::Char(c), KeyModifiers::NONE);
         }
-        handle_key(&mut app, KeyCode::Enter); // -> Preview
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // -> Preview
         assert!(
             matches!(app.screen, Screen::Preview { .. }),
             "should be at Preview before Y"
         );
-        handle_key(&mut app, KeyCode::Char('y')); // execute rewrite
+        handle_key(&mut app, KeyCode::Char('y'), KeyModifiers::NONE); // execute rewrite
         match &app.screen {
             Screen::Success { rewritten, .. } => {
                 assert!(
@@ -1140,14 +1157,14 @@ mod tests {
     fn test_preview_y_calls_drop_coauthor_for_drop_op() {
         // DROP-04: Y on Preview with Drop op calls drop_coauthor and transitions to Success.
         let (_dir, mut app) = make_test_app_with_coauthors();
-        handle_key(&mut app, KeyCode::Down); // select Drop
-        handle_key(&mut app, KeyCode::Enter); // -> CoAuthorList
-        handle_key(&mut app, KeyCode::Enter); // select Bob -> Preview
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE); // select Drop
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // -> CoAuthorList
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // select Bob -> Preview
         assert!(
             matches!(app.screen, Screen::Preview { .. }),
             "should be at Preview before Y"
         );
-        handle_key(&mut app, KeyCode::Char('y')); // execute drop
+        handle_key(&mut app, KeyCode::Char('y'), KeyModifiers::NONE); // execute drop
         match &app.screen {
             Screen::Success { rewritten, .. } => {
                 assert!(
@@ -1182,7 +1199,7 @@ mod tests {
             },
             scan,
         };
-        handle_key(&mut app, KeyCode::Char('n'));
+        handle_key(&mut app, KeyCode::Char('n'), KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
@@ -1208,7 +1225,7 @@ mod tests {
             },
             scan,
         };
-        handle_key(&mut app, KeyCode::Esc);
+        handle_key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::MainMenu { selected: 0 }));
     }
 
@@ -1234,7 +1251,7 @@ mod tests {
             },
             scan,
         };
-        handle_key(&mut app, KeyCode::F(1)); // arbitrary unrelated key
+        handle_key(&mut app, KeyCode::F(1), KeyModifiers::NONE); // arbitrary unrelated key
         assert!(matches!(app.screen, Screen::Preview { .. }));
     }
 
@@ -1247,7 +1264,7 @@ mod tests {
             remote_name: Some("origin".into()),
             copied: false,
         };
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(app.should_exit);
     }
 
@@ -1256,7 +1273,7 @@ mod tests {
         // Any key on Err causes should_exit = true.
         let (_dir, mut app) = make_test_app();
         app.screen = Screen::Err("something went wrong".into());
-        handle_key(&mut app, KeyCode::Esc);
+        handle_key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
         assert!(app.should_exit);
     }
 
@@ -1290,9 +1307,9 @@ mod tests {
         // 06-02 stub sets Screen::Err("not yet implemented"); this test confirms replacement.
         let (_dir, mut app) = make_test_app_with_commits();
         // Navigate to index 2 (AddHook)
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::HookAddList { .. }),
             "expected HookAddList, got something else"
@@ -1305,7 +1322,7 @@ mod tests {
         // with state populated from read_strip_list (not from cached data).
         let (_dir, mut app) = make_test_app_with_commits();
         app.screen = make_hook_add_list_screen(&[("Bob", "bob@example.com")]);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::HookSuccess { state } => match state {
                 crate::hook::HookState::Managed { emails } => {
@@ -1332,7 +1349,7 @@ mod tests {
         );
         // Now attempt to add the same email via the TUI
         app.screen = make_hook_add_list_screen(&[("Bob", "bob@example.com")]);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::HookAlreadyStripped { email } => {
                 assert_eq!(email, "bob@example.com");
@@ -1348,7 +1365,7 @@ mod tests {
         app.screen = Screen::HookAlreadyStripped {
             email: "x@x".into(),
         };
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::MainMenu { selected: 2 }),
             "expected MainMenu {{ selected: 2 }}"
@@ -1362,7 +1379,7 @@ mod tests {
         app.screen = Screen::HookSuccess {
             state: crate::hook::HookState::Absent,
         };
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(app.should_exit, "HookSuccess any-key must set should_exit");
     }
 
@@ -1388,10 +1405,10 @@ mod tests {
         // FAILS with 06-02 stub (Screen::Err("not yet implemented")).
         let (_dir, mut app) = make_test_app_with_commits();
         // Navigate to index 3 (ManageHook)
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(
                 app.screen,
@@ -1410,10 +1427,10 @@ mod tests {
         let (_dir, mut app) = make_test_app_with_commits();
         crate::hook::install_strip(&app.repo, "bob@example.com").unwrap();
         // Navigate to index 3 (ManageHook)
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Down);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::HookManageList { .. }),
             "expected HookManageList for ManageHook on repo with installed hook"
@@ -1430,7 +1447,7 @@ mod tests {
         crate::hook::install_strip(&app.repo, "carol@example.com").unwrap();
         app.screen = make_hook_manage_list_screen(&["bob@example.com", "carol@example.com"]);
         // Press Enter to remove the first (bob@example.com)
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::HookSuccess {
                 state: crate::hook::HookState::Managed { emails },
@@ -1457,7 +1474,7 @@ mod tests {
         let (_dir, mut app) = make_test_app_with_commits();
         crate::hook::install_strip(&app.repo, "bob@example.com").unwrap();
         app.screen = make_hook_manage_list_screen(&["bob@example.com"]);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::HookRemoved),
             "expected HookRemoved after removing the last entry"
@@ -1473,7 +1490,7 @@ mod tests {
         let (_dir, mut app) = make_test_app_with_commits();
         crate::hook::install_strip(&app.repo, "bob@example.com").unwrap();
         app.screen = make_hook_manage_list_screen(&["bob@example.com"]);
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::HookRemoved),
             "expected Screen::HookRemoved after removing the last entry, got {:?}",
@@ -1483,10 +1500,10 @@ mod tests {
         // Part B — empty-state path (no hook ever installed) still produces HookSuccess(Absent):
         let (_dir2, mut app2) = make_test_app();
         // No hook installed; navigate to Manage (index 3) and Enter
-        handle_key(&mut app2, KeyCode::Down); // 0->1
-        handle_key(&mut app2, KeyCode::Down); // 1->2
-        handle_key(&mut app2, KeyCode::Down); // 2->3
-        handle_key(&mut app2, KeyCode::Enter);
+        handle_key(&mut app2, KeyCode::Down, KeyModifiers::NONE); // 0->1
+        handle_key(&mut app2, KeyCode::Down, KeyModifiers::NONE); // 1->2
+        handle_key(&mut app2, KeyCode::Down, KeyModifiers::NONE); // 2->3
+        handle_key(&mut app2, KeyCode::Enter, KeyModifiers::NONE);
         assert!(
             matches!(
                 app2.screen,
@@ -1504,7 +1521,7 @@ mod tests {
         // FAILS because HookManageList arm is a placeholder.
         let (_dir, mut app) = make_test_app();
         app.screen = make_hook_manage_list_screen(&["bob@example.com"]);
-        handle_key(&mut app, KeyCode::Esc);
+        handle_key(&mut app, KeyCode::Esc, KeyModifiers::NONE);
         assert!(
             matches!(app.screen, Screen::MainMenu { selected: 3 }),
             "expected MainMenu {{ selected: 3 }} after Esc from HookManageList"
@@ -1519,9 +1536,9 @@ mod tests {
         // A repo with a stash ref must reach HookAddList or HookSuccess, not Screen::Err.
         let (_dir, mut app) = make_test_app_with_stash();
         // Navigate to Add (index 2): two Down presses
-        handle_key(&mut app, KeyCode::Down); // 0 -> 1
-        handle_key(&mut app, KeyCode::Down); // 1 -> 2
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE); // 0 -> 1
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE); // 1 -> 2
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::Err(msg) => {
                 assert!(
@@ -1544,10 +1561,10 @@ mod tests {
         // A fresh repo with a stash ref must reach HookSuccess(Absent), not Screen::Err.
         let (_dir, mut app) = make_test_app_with_stash();
         // Navigate to Manage (index 3): three Down presses
-        handle_key(&mut app, KeyCode::Down); // 0 -> 1
-        handle_key(&mut app, KeyCode::Down); // 1 -> 2
-        handle_key(&mut app, KeyCode::Down); // 2 -> 3
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE); // 0 -> 1
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE); // 1 -> 2
+        handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE); // 2 -> 3
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::Err(msg) => {
                 assert!(
@@ -1577,19 +1594,19 @@ mod tests {
             &[("Bob", "bob@x")],
         );
         // Name -> Email
-        handle_key(&mut app, KeyCode::Tab);
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::Email)),
             _ => panic!("expected RenameForm"),
         }
         // Email -> List
-        handle_key(&mut app, KeyCode::Tab);
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::List)),
             _ => panic!("expected RenameForm"),
         }
         // List -> Name
-        handle_key(&mut app, KeyCode::Tab);
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, .. } => assert!(matches!(draft.focused, FormField::Name)),
             _ => panic!("expected RenameForm"),
@@ -1610,7 +1627,7 @@ mod tests {
             draft.focused = FormField::List;
         }
         // Enter on the first (only) matched author
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         // Must stay on RenameForm (not transition to Preview)
         match &app.screen {
             Screen::RenameForm { draft, .. } => {
@@ -1633,7 +1650,7 @@ mod tests {
         if let Screen::RenameForm { draft, .. } = &mut app.screen {
             draft.focused = FormField::List;
         }
-        handle_key(&mut app, KeyCode::Char('b'));
+        handle_key(&mut app, KeyCode::Char('b'), KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { draft, filter, .. } => {
                 assert_eq!(filter, "b", "filter must reflect typed char");
@@ -1642,7 +1659,7 @@ mod tests {
             }
             _ => panic!("expected RenameForm"),
         }
-        handle_key(&mut app, KeyCode::Backspace);
+        handle_key(&mut app, KeyCode::Backspace, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { filter, .. } => {
                 assert!(filter.is_empty(), "filter must shrink on Backspace");
@@ -1658,8 +1675,8 @@ mod tests {
         // The form must still be submittable via Name/Email focus.
         let (_dir, mut app) = make_test_app_with_commits();
         // Navigate to AuthorList then select Alice -> RenameForm with empty excluded list
-        handle_key(&mut app, KeyCode::Enter); // -> AuthorList (only Alice)
-        handle_key(&mut app, KeyCode::Enter); // select Alice -> RenameForm
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // -> AuthorList (only Alice)
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // select Alice -> RenameForm
         // Verify we're on RenameForm
         assert!(matches!(app.screen, Screen::RenameForm { .. }), "should be on RenameForm");
         // Check the excluded list is empty (single-author repo)
@@ -1670,8 +1687,8 @@ mod tests {
             _ => panic!("expected RenameForm"),
         }
         // Tab to List focus — must not panic or skip
-        handle_key(&mut app, KeyCode::Tab); // Name -> Email
-        handle_key(&mut app, KeyCode::Tab); // Email -> List
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE); // Name -> Email
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE); // Email -> List
         match &app.screen {
             Screen::RenameForm { draft, .. } => {
                 assert!(matches!(draft.focused, FormField::List), "should reach List focus");
@@ -1679,18 +1696,18 @@ mod tests {
             _ => panic!("expected RenameForm"),
         }
         // Enter on empty list is a no-op — stay on RenameForm, fields unchanged
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         assert!(matches!(app.screen, Screen::RenameForm { .. }), "Enter on empty list must stay on RenameForm");
         // Return to Name focus and fill in both fields, then submit
-        handle_key(&mut app, KeyCode::Tab); // List -> Name
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE); // List -> Name
         for c in "NewAlice".chars() {
-            handle_key(&mut app, KeyCode::Char(c));
+            handle_key(&mut app, KeyCode::Char(c), KeyModifiers::NONE);
         }
-        handle_key(&mut app, KeyCode::Tab); // Name -> Email
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE); // Name -> Email
         for c in "new@example.com".chars() {
-            handle_key(&mut app, KeyCode::Char(c));
+            handle_key(&mut app, KeyCode::Char(c), KeyModifiers::NONE);
         }
-        handle_key(&mut app, KeyCode::Enter); // submit (is_complete() -> true)
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // submit (is_complete() -> true)
         assert!(
             matches!(app.screen, Screen::Preview { .. }),
             "complete form must submit to Preview even when list was empty"
@@ -1704,7 +1721,7 @@ mod tests {
         let (_dir, mut app) = make_test_app();
         app.screen = make_author_list_screen(&["Alice", "Bob", "Carol"]);
         // Alice is selected (index 0); transition to RenameForm
-        handle_key(&mut app, KeyCode::Enter);
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         match &app.screen {
             Screen::RenameForm { source, items, matched, .. } => {
                 let src_name = source.name.clone();
