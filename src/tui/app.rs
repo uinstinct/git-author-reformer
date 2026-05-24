@@ -24,6 +24,11 @@ pub enum Screen {
     RenameForm {
         source: AuthorIdentity,
         draft: RenameDraft,
+        items: Vec<AuthorIdentity>,
+        filter: String,
+        matched: Vec<AuthorIdentity>,
+        nucleo: Nucleo<AuthorIdentity>,
+        selected: usize,
     },
     Preview {
         op: PendingOp,
@@ -92,13 +97,15 @@ impl RenameDraft {
 pub enum FormField {
     Name,
     Email,
+    List,
 }
 
 impl FormField {
     pub fn toggle(self) -> Self {
         match self {
             Self::Name => Self::Email,
-            Self::Email => Self::Name,
+            Self::Email => Self::List,
+            Self::List => Self::Name,
         }
     }
 }
@@ -271,9 +278,10 @@ mod tests {
 
     #[test]
     fn test_form_field_toggle() {
-        // FormField::toggle switches between Name and Email.
+        // FormField::toggle cycles Name -> Email -> List -> Name (3-way).
         assert!(matches!(FormField::Name.toggle(), FormField::Email));
-        assert!(matches!(FormField::Email.toggle(), FormField::Name));
+        assert!(matches!(FormField::Email.toggle(), FormField::List));
+        assert!(matches!(FormField::List.toggle(), FormField::Name));
     }
 
     #[test]

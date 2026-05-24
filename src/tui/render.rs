@@ -16,9 +16,14 @@ pub fn render(frame: &mut Frame, app: &App) {
             selected,
             ..
         } => render_author_list(frame, frame.area(), filter, matched, *selected),
-        Screen::RenameForm { source, draft } => {
-            render_rename_form(frame, frame.area(), source, draft)
-        }
+        Screen::RenameForm {
+            source,
+            draft,
+            filter,
+            matched,
+            selected,
+            ..
+        } => render_rename_form(frame, frame.area(), source, draft, filter, matched, *selected),
         Screen::Preview { op, scan } => render_preview(frame, frame.area(), op, scan),
         Screen::CoAuthorList {
             filter,
@@ -141,11 +146,21 @@ fn render_author_list(
     );
 }
 
-fn render_rename_form(frame: &mut Frame, area: Rect, source: &AuthorIdentity, draft: &RenameDraft) {
-    let [header, name_field, email_field, footer] = Layout::vertical([
+fn render_rename_form(
+    frame: &mut Frame,
+    area: Rect,
+    source: &AuthorIdentity,
+    draft: &RenameDraft,
+    filter: &str,
+    matched: &[AuthorIdentity],
+    selected: usize,
+) {
+    let [header, name_field, email_field, filter_row, list_body, footer] = Layout::vertical([
         Constraint::Length(3),
         Constraint::Length(3),
         Constraint::Length(3),
+        Constraint::Length(3),
+        Constraint::Fill(1),
         Constraint::Length(1),
     ])
     .areas(area);
@@ -164,11 +179,7 @@ fn render_rename_form(frame: &mut Frame, area: Rect, source: &AuthorIdentity, dr
     } else {
         Style::default()
     };
-    let name_title = if name_focused {
-        "* New name"
-    } else {
-        "New name"
-    };
+    let name_title = if name_focused { "* New name" } else { "New name" };
     frame.render_widget(
         Paragraph::new(draft.new_name.as_str())
             .block(Block::bordered().title(name_title).border_style(name_style)),
@@ -182,11 +193,7 @@ fn render_rename_form(frame: &mut Frame, area: Rect, source: &AuthorIdentity, dr
     } else {
         Style::default()
     };
-    let email_title = if email_focused {
-        "* New email"
-    } else {
-        "New email"
-    };
+    let email_title = if email_focused { "* New email" } else { "New email" };
     frame.render_widget(
         Paragraph::new(draft.new_email.as_str()).block(
             Block::bordered()
@@ -196,19 +203,60 @@ fn render_rename_form(frame: &mut Frame, area: Rect, source: &AuthorIdentity, dr
         email_field,
     );
 
-    // Cursor: place in the focused field
-    if name_focused {
-        let cursor_x = name_field.x + 1 + draft.new_name.chars().count() as u16;
-        let cursor_y = name_field.y + 1;
-        frame.set_cursor_position((cursor_x, cursor_y));
+    // Filter row for the embedded author list
+    let list_focused = matches!(draft.focused, FormField::List);
+    let filter_style = if list_focused {
+        Style::default().add_modifier(Modifier::BOLD)
     } else {
-        let cursor_x = email_field.x + 1 + draft.new_email.chars().count() as u16;
-        let cursor_y = email_field.y + 1;
-        frame.set_cursor_position((cursor_x, cursor_y));
+        Style::default()
+    };
+    let filter_title = if list_focused { "* Filter" } else { "Filter" };
+    let filter_text = format!("/ {}", filter);
+    frame.render_widget(
+        Paragraph::new(filter_text.as_str())
+            .block(Block::bordered().title(filter_title).border_style(filter_style)),
+        filter_row,
+    );
+
+    // Embedded author list (excludes source)
+    let items: Vec<ListItem> = matched
+        .iter()
+        .map(|item| {
+            ListItem::new(format!(
+                "{:>4}  {} <{}>",
+                item.commit_count, item.name, item.email
+            ))
+        })
+        .collect();
+    let list = List::new(items)
+        .block(Block::bordered().title(format!("Authors ({} match)", matched.len())))
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+        .highlight_symbol("> ");
+    let mut state = ListState::default();
+    state.select(if matched.is_empty() { None } else { Some(selected) });
+    frame.render_stateful_widget(list, list_body, &mut state);
+
+    // Cursor: place in the focused zone
+    match draft.focused {
+        FormField::Name => {
+            let cursor_x = name_field.x + 1 + draft.new_name.chars().count() as u16;
+            let cursor_y = name_field.y + 1;
+            frame.set_cursor_position((cursor_x, cursor_y));
+        }
+        FormField::Email => {
+            let cursor_x = email_field.x + 1 + draft.new_email.chars().count() as u16;
+            let cursor_y = email_field.y + 1;
+            frame.set_cursor_position((cursor_x, cursor_y));
+        }
+        FormField::List => {
+            let cursor_x = filter_row.x + 1 + 2 + filter.chars().count() as u16;
+            let cursor_y = filter_row.y + 1;
+            frame.set_cursor_position((cursor_x, cursor_y));
+        }
     }
 
     frame.render_widget(
-        Paragraph::new("Tab: switch field   Enter: confirm   Esc: cancel"),
+        Paragraph::new("Tab: switch  type/Up/Down on list: pick  Enter: confirm/autofill  Esc: cancel"),
         footer,
     );
 }
