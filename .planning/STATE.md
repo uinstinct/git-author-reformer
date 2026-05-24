@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 Phase: 06 (Hook TUI Integration) — EXECUTING
 Plan: 1 of 5
 Status: Executing Phase 06
-Last activity: 2026-05-21 -- Phase 06 execution started
+Last activity: 2026-05-24 - Completed quick task 260524-kgx: Add author selection list to rename form screen
 
 ## Performance Metrics
 
@@ -86,12 +86,13 @@ None yet.
 
 ### Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260520-rbp | add a script to update the tag for release | 2026-05-20 | 5136944 | [260520-rbp-add-a-script-to-update-the-tag-for-relea](.planning/quick/260520-rbp-add-a-script-to-update-the-tag-for-relea/) |
-| 260520-tty | Fix Terminal I/O error when binary run via curl\|sh pipe on macOS | 2026-05-20 | 7174552 | [260520-tty-fix-non-tty-stdin-detection](.planning/quick/260520-tty-fix-non-tty-stdin-detection/) |
-| 260520-sfz | Fix not-an-interactive-terminal error when running git-author-reformer directly | 2026-05-20 | 006cb1d | [260520-sfz-fix-not-an-interactive-terminal-error-wh](.planning/quick/260520-sfz-fix-not-an-interactive-terminal-error-wh/) |
-| 260520-scm | add 'c' shortcut to copy push command on Success screen | 2026-05-20 | 225c4e5 | [260520-scm-when-the-following-prompt-occurs-run-the](.planning/quick/260520-scm-when-the-following-prompt-occurs-run-the/) |
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260520-rbp | add a script to update the tag for release | 2026-05-20 | 5136944 | | [260520-rbp-add-a-script-to-update-the-tag-for-relea](.planning/quick/260520-rbp-add-a-script-to-update-the-tag-for-relea/) |
+| 260520-tty | Fix Terminal I/O error when binary run via curl\|sh pipe on macOS | 2026-05-20 | 7174552 | | [260520-tty-fix-non-tty-stdin-detection](.planning/quick/260520-tty-fix-non-tty-stdin-detection/) |
+| 260520-sfz | Fix not-an-interactive-terminal error when running git-author-reformer directly | 2026-05-20 | 006cb1d | | [260520-sfz-fix-not-an-interactive-terminal-error-wh](.planning/quick/260520-sfz-fix-not-an-interactive-terminal-error-wh/) |
+| 260520-scm | add 'c' shortcut to copy push command on Success screen | 2026-05-20 | 225c4e5 | | [260520-scm-when-the-following-prompt-occurs-run-the](.planning/quick/260520-scm-when-the-following-prompt-occurs-run-the/) |
+| 260524-kgx | Add author selection list to rename form screen | 2026-05-24 | bc1b400 | Needs Review | [260524-kgx-add-author-selection-list-to-rename-form](.planning/quick/260524-kgx-add-author-selection-list-to-rename-form/) |
 
 ## Deferred Items
 
