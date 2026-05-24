@@ -811,6 +811,7 @@ mod tests {
             &[],
         );
         if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::Name;
             draft.new_name = "Bob".to_string();
             draft.new_email = "bob@example.com".to_string();
         }
@@ -1022,6 +1023,8 @@ mod tests {
         handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
         // Select Alice (first entry) and press Enter
         handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+        // List is focused first; Tab to the Name field before typing.
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         // Fill in rename form
         for c in "NewAlice".chars() {
             handle_key(&mut app, KeyCode::Char(c), KeyModifiers::NONE);
@@ -1128,6 +1131,7 @@ mod tests {
         // Go through the full flow to get a real Preview with real scan data
         handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // -> AuthorList
         handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE); // select Alice -> RenameForm
+        handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE); // List -> Name before typing
         for c in "Alice2".chars() {
             handle_key(&mut app, KeyCode::Char(c), KeyModifiers::NONE);
         }
@@ -1593,6 +1597,9 @@ mod tests {
             AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
             &[("Bob", "bob@x")],
         );
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::Name;
+        }
         // Name -> Email
         handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE);
         match &app.screen {
@@ -1685,6 +1692,10 @@ mod tests {
                 assert!(matched.is_empty(), "excluded list must be empty for single-author repo");
             }
             _ => panic!("expected RenameForm"),
+        }
+        // Start from Name focus to exercise the documented 3-way cycle.
+        if let Screen::RenameForm { draft, .. } = &mut app.screen {
+            draft.focused = FormField::Name;
         }
         // Tab to List focus — must not panic or skip
         handle_key(&mut app, KeyCode::Tab, KeyModifiers::NONE); // Name -> Email
