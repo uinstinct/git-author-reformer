@@ -112,3 +112,4 @@ Resume file: None
 | 2026-05-20 | fast | update install.sh to always re-download binary | ✅ |
 | 2026-05-20 | fast | show a progress bar when downloading the release in install.sh | ✅ |
 | 2026-05-24 | fast | focus author selection list first on rename form | ✅ |
+| 2026-05-29 | fast | Enter on focused author list submits rename form | ✅ |
