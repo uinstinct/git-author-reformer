@@ -253,15 +253,19 @@ pub fn handle_key(app: &mut App, key: KeyCode, mods: KeyModifiers) {
             KeyCode::BackTab => {
                 draft.focused = draft.focused.clone().toggle_back();
             }
-            KeyCode::Enter if matches!(draft.focused, FormField::List) => {
-                // List focused: autofill from highlighted author without submitting.
-                if let Some(a) = matched.get(*selected) {
-                    draft.new_name = a.name.clone();
-                    draft.new_email = a.email.clone();
+            KeyCode::Enter => {
+                // List focused: picking the highlighted author fills the draft so a single
+                // Enter selects it and submits — no Tab into a field required.
+                if matches!(draft.focused, FormField::List) {
+                    if let Some(a) = matched.get(*selected) {
+                        draft.new_name = a.name.clone();
+                        draft.new_email = a.email.clone();
+                    }
                 }
-                // Do NOT change screen — stay on RenameForm.
-            }
-            KeyCode::Enter if draft.is_complete() => {
+                if !draft.is_complete() {
+                    // Nothing to submit yet (empty list pick or partial manual entry).
+                    return;
+                }
                 // Clone source before the borrow ends so we can assign app.screen
                 let source_clone = source.clone();
                 let new_name = draft.new_name.trim().to_string();
@@ -1675,9 +1679,10 @@ mod tests {
     }
 
     #[test]
-    fn test_rename_form_list_enter_autofills_and_stays() {
-        // Selecting from the embedded list must autofill both fields WITHOUT submitting.
-        // Submitting would transition to Preview, breaking the "still editable" contract.
+    fn test_rename_form_list_enter_picks_author_and_submits() {
+        // Enter on a highlighted list author fills both fields and submits in one
+        // keystroke. A picked author is always a complete identity, so requiring a
+        // Tab-then-Enter to proceed was redundant friction.
         let (_dir, mut app) = make_test_app();
         app.screen = make_rename_form_screen(
             AuthorIdentity { name: "Alice".into(), email: "alice@x".into(), commit_count: 1 },
@@ -1689,13 +1694,15 @@ mod tests {
         }
         // Enter on the first (only) matched author
         handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
-        // Must stay on RenameForm (not transition to Preview)
         match &app.screen {
-            Screen::RenameForm { draft, .. } => {
-                assert_eq!(draft.new_name, "Bob", "autofill must set new_name");
-                assert_eq!(draft.new_email, "bob@example.com", "autofill must set new_email");
+            Screen::Preview {
+                op: PendingOp::Rename { new_name, new_email, .. },
+                ..
+            } => {
+                assert_eq!(new_name, "Bob");
+                assert_eq!(new_email, "bob@example.com");
             }
-            _ => panic!("expected RenameForm after list Enter, not Preview or other"),
+            _ => panic!("expected Preview after picking an author from the list"),
         }
     }
 

@@ -256,7 +256,7 @@ fn render_rename_form(
     }
 
     frame.render_widget(
-        Paragraph::new("Tab: switch  type/Up/Down on list: pick  Enter: confirm/autofill  Esc: cancel"),
+        Paragraph::new("Tab: switch  type/Up/Down on list: pick  Enter: select/confirm  Esc: cancel"),
         footer,
     );
 }
